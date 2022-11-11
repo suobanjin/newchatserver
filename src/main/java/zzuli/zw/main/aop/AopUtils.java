@@ -13,7 +13,7 @@ import java.lang.reflect.Proxy;
 public class AopUtils {
 
     @SuppressWarnings("unchecked")
-    public static  <T,R>  R aop(Class<T> implementsClass,Class<R> InterfaceClass) {
+    public synchronized static  <T,R>  R aop(Class<T> implementsClass,Class<R> InterfaceClass) {
         T instance = ObjectFactory.getInstance(implementsClass);
         TransactionHandler transactionHandler = new TransactionHandler(instance);
         assert instance != null;
@@ -23,7 +23,7 @@ public class AopUtils {
     }
 
     @SuppressWarnings("unchecked")
-    public static  <T,R>  R aop(Class<T> implementsClass) {
+    public synchronized static  <T,R>  R aop(Class<T> implementsClass) {
         T instance = ObjectFactory.getInstance(implementsClass);
         TransactionHandler transactionHandler = new TransactionHandler(instance);
         assert instance != null;
@@ -31,7 +31,7 @@ public class AopUtils {
         Class<?>[] interfaces = instance.getClass().getInterfaces();
         return (R) Proxy.newProxyInstance(classLoader, interfaces, transactionHandler);
     }
-    public static  <T,R>  R aop(Object obj) {
+    public synchronized static  <T,R>  R aop(Object obj) {
         TransactionHandler transactionHandler = new TransactionHandler(obj);
         ClassLoader classLoader = obj.getClass().getClassLoader();
         Class<?>[] interfaces = obj.getClass().getInterfaces();

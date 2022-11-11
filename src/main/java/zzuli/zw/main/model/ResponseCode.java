@@ -17,4 +17,6 @@ public class ResponseCode implements Serializable {
     public static final int SUCCESS = 200;         //请求成功
     public static final int FAIL = 501;            //请求失败
 
+    public static final int  ILLEGAL_REQUEST = 502; //非法请求
+
 }

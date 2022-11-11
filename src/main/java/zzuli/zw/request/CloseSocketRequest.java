@@ -1,14 +1,14 @@
 package zzuli.zw.request;
 
 import zzuli.zw.config.Router;
+import zzuli.zw.main.annotation.Injection;
 import zzuli.zw.main.broadcast.Broadcast;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.annotation.ParameterName;
 import zzuli.zw.main.annotation.Request;
 import zzuli.zw.main.annotation.RequestMapping;
 import zzuli.zw.domain.*;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.factory.ThreadContainer;
 import zzuli.zw.service.FriendService;
 import zzuli.zw.service.FriendServiceImpl;
 import zzuli.zw.main.aop.AopUtils;
@@ -23,15 +23,18 @@ import zzuli.zw.main.aop.AopUtils;
 @Request
 public class CloseSocketRequest{
     private FriendService friendService = AopUtils.aop(FriendServiceImpl.class);
-    private Broadcast commonRequest = new Broadcast();
+
+    @Injection(name = "userBroadcast")
+    private Broadcast broadcast;
 
 
     @RequestMapping(Router.CLOSE_SOCKET)
     public void exit(RequestParameter request,@ParameterName("user") User user){
         //friendService.updateStatus(user.getUsername(), StatusType.OFFLINE);
-        ThreadContainer.removeThread(user.getId());
-        commonRequest.broadcast(new ResponseMessage());
-        request.getRequestThread().close();
+
+        broadcast.broadcast(new ResponseMessage(),user.getId());
+        request.closeConnection(user.getId());
+        request.stopHeartListener();
     }
     /*@Override
     public void doRequest(RequestParameter request, ResponseParameter response) throws IOException {

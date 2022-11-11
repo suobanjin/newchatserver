@@ -13,13 +13,14 @@ import zzuli.zw.main.interfaces.HandlerInterceptor;
  * @date 2022/2/4
  * @className LogInterceptor
  */
-@Interceptor
+@Interceptor(order = 0)
 public class LogInterceptor implements HandlerInterceptor {
     private Logger logger = LoggerFactory.getLogger(LogInterceptor.class);
     @Override
     public boolean preHandle(RequestParameter request,
                              ResponseParameter response,
                              Object handler) throws Exception {
+        System.out.println("日志拦截中......");
         logger.info("请求ip--->" + request.getIp() + "  " +
                 "请求端口--->" + request.getPort()  + "  " +
                 "请求--->" + request.getRequest());

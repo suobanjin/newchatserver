@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Test;
 import zzuli.zw.config.Router;
 import zzuli.zw.domain.User;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import zzuli.zw.main.utils.ProtocolUtils;
 
@@ -32,7 +32,6 @@ public class ConnectionTest {
         user.setId(1);
         user.setUsername("1234567");
         user.setPassword("123456");
-        //requestMap.put("ints",1);
         requestMap.put("age",12);
         requestMap.put("user",user);
         String s = ObjectMapperFactory.getInstance().writeValueAsString(requestMap);
@@ -63,5 +62,26 @@ public class ConnectionTest {
             });
         }
 
+    }
+
+    @Test
+    public void test03() throws IOException, InterruptedException {
+        Socket socket = new Socket("localhost",5539);
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setRequest(Router.DELETE_FRIEND);
+        Map<String,Object> requestMap = new HashMap<>();
+        User user = new User();
+        user.setId(1);
+        user.setUsername("1234567");
+        user.setPassword("123456");
+        requestMap.put("user",user);
+        String s = ObjectMapperFactory.getInstance().writeValueAsString(requestMap);
+        responseMessage.setContentMap(s);
+        responseMessage.setContentLength(s.length());
+
+        ProtocolUtils.send(responseMessage,socket);
+        Thread.sleep(3000);
+        ResponseMessage receive = ProtocolUtils.receive(socket);
+        System.out.println(receive);
     }
 }

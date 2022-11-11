@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import zzuli.zw.main.annotation.ParameterName;
 import zzuli.zw.domain.User;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.argumentResolver.*;
 import zzuli.zw.main.factory.ArgumentResolvers;
 import zzuli.zw.main.factory.ObjectMapperFactory;

@@ -5,7 +5,7 @@ import zzuli.zw.config.Router;
 import zzuli.zw.domain.User;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.service.*;
 import zzuli.zw.main.aop.AopUtils;
 import zzuli.zw.main.utils.ProtocolUtils;

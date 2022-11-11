@@ -1,15 +1,24 @@
 package zzuli.zw.main.model;
 
 import cn.hutool.core.util.RandomUtil;
+import zzuli.zw.config.Router;
 import zzuli.zw.domain.User;
 import zzuli.zw.main.broadcast.Broadcast;
+import zzuli.zw.main.broadcast.Broadcasts;
 import zzuli.zw.main.connection.RequestServerThread;
+import zzuli.zw.main.factory.HeartBeatContainer;
 import zzuli.zw.main.factory.SocketContainer;
 import zzuli.zw.main.factory.ThreadContainer;
 import zzuli.zw.main.interfaces.Session;
 import zzuli.zw.main.factory.SessionContainer;
+import zzuli.zw.main.ioc.ServerContext;
+import zzuli.zw.main.model.protocol.ResponseMessage;
+import zzuli.zw.main.utils.SocketUtils;
+
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.Socket;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +52,12 @@ public class RequestParameter implements Serializable {
 
     private String protocolVersion;
 
+    private static final int TIMEOUT = 30000;
+
+    private Thread heartListenerThread;
+
+    private ServerContext serverContext;
+
     @Override
     public String toString() {
         return "RequestParameter{" +
@@ -61,6 +76,14 @@ public class RequestParameter implements Serializable {
                 '}';
     }
 
+
+    public ServerContext getServerContext() {
+        return serverContext;
+    }
+
+    public void setServerContext(ServerContext serverContext) {
+        this.serverContext = serverContext;
+    }
 
     public Broadcast getBroadcast() {
         return broadcast;
@@ -218,11 +241,14 @@ public class RequestParameter implements Serializable {
     }
 
     public Broadcast broadcast() {
-        if (broadcast == null)this.broadcast = new Broadcast();
-        return broadcast;
+        if (this.broadcast == null){
+            this.broadcast = (Broadcast) this.serverContext.getBean(Broadcasts.class);
+        }
+        return this.broadcast;
     }
     public boolean keepAlive(){
         if (getRequestThread() == null || requestSocket == null)return false;
+        if (this.session == null) return false;
         List<Object> attributes = session.getAttributes();
         for (Object attribute : attributes) {
             if (attribute instanceof User){
@@ -273,5 +299,60 @@ public class RequestParameter implements Serializable {
         return true;
     }
 
+    public boolean closeSocket(Socket socket){
+        if (socket.isClosed())return true;
+        SocketUtils.closeSocket(socket);
+        getRequestThread().close();
+        return true;
+    }
 
+    public boolean closeSocket(){
+        if (this.requestSocket == null)return false;
+        if (requestSocket.isClosed())return true;
+        SocketUtils.closeSocket(this.requestSocket);
+        getRequestThread().close();
+        return true;
+    }
+    public void startHeartListener(int userId,
+                                   ResponseParameter response){
+        if (this.heartListenerThread != null)throw new RuntimeException("已经开启心跳检测......");
+        this.heartListenerThread = new Thread(() -> {
+            while (HeartBeatContainer.getLastDate(this.requestSocket) != null){
+                if (System.currentTimeMillis() - HeartBeatContainer.getLastDate(requestSocket).getTime() > TIMEOUT){
+                    ResponseMessage commonResponseMessage = new ResponseMessage();
+                    commonResponseMessage.setRequest(Router.UPDATE_FRIEND_STATUS);
+                    commonResponseMessage.setCode(ResponseCode.SUCCESS);
+                    commonResponseMessage.setFrom(userId);
+                    commonResponseMessage.setKeepAlive(true);
+                    commonResponseMessage.setSendTime(new Date().getTime());
+                    commonResponseMessage.setContentLength(0);
+                    this.broadcast().broadcast(commonResponseMessage,userId);
+                    this.closeConnection(userId);
+                }else {
+                    try {
+                        ResponseMessage responseMessage = new ResponseMessage();
+                        responseMessage.setRequest(Router.HEART_LISTENER);
+                        responseMessage.setCode(ResponseCode.SUCCESS);
+                        responseMessage.setSendTime(new Date().getTime());
+                        responseMessage.setSessionId(this.getSession().getId());
+                        responseMessage.setContentLength(0);
+                        responseMessage.setKeepAlive(true);
+                        response.write(responseMessage);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            HeartBeatContainer.removeHeartBeat(this.getRequestSocket());
+        });
+        this.heartListenerThread.start();
+    }
+
+    public void stopHeartListener(){
+        HeartBeatContainer.addHeartBeat(this.requestSocket,null);
+    }
+
+    public void updateHeartListener(){
+        HeartBeatContainer.addHeartBeat(this.requestSocket,new Date());
+    }
 }

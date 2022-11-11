@@ -1,15 +1,12 @@
 package zzuli.zw.main.connection;
 
-import cn.hutool.core.thread.ThreadUtil;
 import cn.hutool.core.util.RandomUtil;
 import zzuli.zw.config.Router;
 import zzuli.zw.domain.User;
-import zzuli.zw.main.broadcast.Broadcast;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import zzuli.zw.main.factory.SessionContainer;
 import zzuli.zw.main.factory.SocketContainer;
-import zzuli.zw.main.factory.ThreadContainer;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.UserSession;
 import zzuli.zw.service.*;
 import zzuli.zw.main.aop.AopUtils;
@@ -65,14 +62,14 @@ public class ServerThread implements Runnable {
                         //responseMessage.setRequest(RequestType.LOGIN_SUCCESS);
                         ProtocolUtils.send(responseMessage, socket);
                         //通过线程发送响应信息
-                        RequestServerThread serverThread = new RequestServerThread(socket);
+                        //RequestServerThread serverThread = new RequestServerThread(socket,);
                         //通过通用响应请求通知其他用户上线信息
-                        Broadcast commonRequest = new Broadcast();
+                        //Broadcast commonRequest = new Broadcast();
                         //commonRequest.notifyOther(user.getUsername(),1);
                         //为用户开启独立线程
-                        ThreadUtil.execute(serverThread);
+                        //ThreadUtil.execute(serverThread);
                         //将用户通信线程加入容器进行管理
-                        ThreadContainer.addThread(user.getId(), serverThread);
+                        //ThreadContainer.addThread(user.getId(), serverThread);
                     } else {
                         //用户信息校验失败，返回登录失败信息，并将socket关闭
                         //responseMessage.setRequest(RequestType.LOGIN_FAIL);

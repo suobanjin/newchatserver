@@ -1,6 +1,6 @@
 package zzuli.zw.main.model;
 
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.ProtocolUtils;
 import java.io.IOException;
 import java.io.OutputStream;

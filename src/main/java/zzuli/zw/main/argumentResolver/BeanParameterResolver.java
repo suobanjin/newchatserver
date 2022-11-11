@@ -3,7 +3,7 @@ package zzuli.zw.main.argumentResolver;
 import cn.hutool.core.bean.BeanUtil;
 import zzuli.zw.main.annotation.ParameterName;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
 import zzuli.zw.main.utils.ClassUtil;
@@ -21,7 +21,9 @@ public class BeanParameterResolver implements HandlerMethodArgumentResolver {
 
     @Override
     public boolean supportsParameter(Parameter parameter) {
-        return BeanUtil.isBean(parameter.getType());
+        return BeanUtil.isBean(parameter.getType()) &&
+                parameter.getType() != RequestParameter.class &&
+                parameter.getType() != ResponseParameter.class;
     }
 
     @Override

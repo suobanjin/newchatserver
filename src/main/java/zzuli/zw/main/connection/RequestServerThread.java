@@ -2,13 +2,13 @@ package zzuli.zw.main.connection;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import zzuli.zw.main.connection.DispatcherRequest;
 import zzuli.zw.main.factory.InterceptorsQueue;
 import zzuli.zw.main.interfaces.HandlerInterceptor;
 import zzuli.zw.main.factory.ObjectMapperFactory;
+import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.utils.ConfigUtils;
 import zzuli.zw.main.utils.ProtocolUtils;
@@ -33,9 +33,11 @@ public class RequestServerThread implements Runnable {
     private static final String attribute = "notInterceptorRequest";
     private static final List<Integer> list = new CopyOnWriteArrayList<>();
     private AtomicBoolean flag = new AtomicBoolean(true);
+    private ServerContext serverContext;
 
-    public RequestServerThread(Socket socket) {
+    public RequestServerThread(Socket socket, ServerContext serverContext) {
         this.socket = socket;
+        this.serverContext = serverContext;
     }
 
     //关闭当前线程
@@ -201,6 +203,7 @@ public class RequestServerThread implements Runnable {
         requestParameter.setTo(responseMessage.getTo());
         requestParameter.setRequestType(responseMessage.getRequestType());
         requestParameter.setProtocolVersion(responseMessage.getVersion());
+        requestParameter.setServerContext(this.serverContext);
         ObjectMapper instance = ObjectMapperFactory.getInstance();
         try {
             if (responseMessage.getContent() == null || responseMessage.getContent().length() == 0) {

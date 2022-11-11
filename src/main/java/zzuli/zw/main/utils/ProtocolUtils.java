@@ -1,7 +1,7 @@
 package zzuli.zw.main.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import java.io.*;
 import java.net.Socket;
@@ -27,22 +27,6 @@ public class ProtocolUtils {
         bufferedWriter.write("EOF\n");
         bufferedWriter.flush();
     }
-
-    /*public static JsonResult<?> receive(Socket socket) throws IOException {
-        ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
-        InputStream inputStream = socket.getInputStream();
-        StringBuilder stringBuilder = new StringBuilder();
-        String result;
-        BufferedReader bufferedReader = new BufferedReader(
-                new InputStreamReader(inputStream)
-        );
-        while (!(result = bufferedReader.readLine()).equals("EOF")) {
-            stringBuilder.append(result);
-        }
-        result = stringBuilder.toString();
-        System.out.println("receive ---> " + result);
-        return objectMapper.readValue(result, JsonResult.class);
-    }*/
     public static ResponseMessage receive(Socket socket) throws IOException {
         ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
         InputStream inputStream = socket.getInputStream();
@@ -58,15 +42,5 @@ public class ProtocolUtils {
         result = stringBuilder.toString();
         System.out.println("receive ---> " + result);
         return objectMapper.readValue(result, ResponseMessage.class);
-    }
-    public static  byte[] readInputStream(InputStream inputStream) throws IOException {
-        byte[] buffer = new byte[4096];
-        int len = 0;
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        while((len = inputStream.read(buffer)) != -1) {
-            bos.write(buffer, 0, len);
-        }
-        bos.close();
-        return bos.toByteArray();
     }
 }

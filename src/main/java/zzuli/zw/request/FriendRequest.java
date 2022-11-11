@@ -1,6 +1,6 @@
 package zzuli.zw.request;
 
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.annotation.*;
 import zzuli.zw.config.Router;
 import zzuli.zw.domain.User;

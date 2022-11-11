@@ -59,7 +59,7 @@ public class ServerThreadStart {
             while (!ss.isClosed()) {
                 Socket socket = ss.accept();
                 logger.info(socket.getInetAddress().getHostAddress() +"使用端口" + socket.getPort() + "连接成功!");
-                RequestServerThread requestServerThread = new RequestServerThread(socket);
+                RequestServerThread requestServerThread = new RequestServerThread(socket,serverContext);
                 new Thread(requestServerThread).start();
             }
         } catch (IOException | InterruptedException e) {
@@ -156,7 +156,6 @@ public class ServerThreadStart {
         }
         logger.info("resolver config completed");
         logger.info("resolver count " + ArgumentResolvers.getInstance().size());
-
     }
 
     /*String basePacket = ConfigUtils.getConfigAttribute(REQUEST_PACKET);

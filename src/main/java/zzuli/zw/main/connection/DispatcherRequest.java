@@ -8,12 +8,11 @@ import zzuli.zw.main.factory.ArgumentResolvers;
 import zzuli.zw.main.factory.RequestBeanContainer;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.util.Arrays;
 
 /**
  * @author 索半斤
@@ -93,21 +92,22 @@ public class DispatcherRequest extends BaseRequest {
             Parameter[] parameters = method.getParameters();
             for (int i = 0; i< parameterCount;i++ ) {
                 Parameter parameter = parameters[i];
-                HandlerMethodArgumentResolver argumentResolver = ArgumentResolvers.getArgumentResolverCache(parameter.getType());
+                HandlerMethodArgumentResolver argumentResolver = ArgumentResolvers.getInstance().getArgumentResolverCache(parameter.getType());
                 if (argumentResolver != null){
                     Object o = argumentResolver.resolveArgument(parameter,request,response,request.getResult());
                     objects[i] = o;
                 }else {
                     for (HandlerMethodArgumentResolver resolver : ArgumentResolvers.getInstance()) {
                         if (resolver.supportsParameter(parameter)) {
-                            ArgumentResolvers.addArgumentResolverCache(parameter.getType(),resolver);
+                            ArgumentResolvers.getInstance().addArgumentResolverCache(parameter.getType(),resolver);
                             Object o = resolver.resolveArgument(parameter, request, response, request.getResult());
                             objects[i] = o;
+                            break;
                         }
                     }
                 }
             }
-            // System.out.println(Arrays.toString(objects));
+
             Object responseMessage = method.invoke(value,objects);
             if (responseMessage != null) {
                 response.write((ResponseMessage)responseMessage);

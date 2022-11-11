@@ -3,7 +3,7 @@ package zzuli.zw.interceptor;
 import zzuli.zw.main.model.ResponseCode;
 import zzuli.zw.main.annotation.Interceptor;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.interfaces.HandlerInterceptor;
 import zzuli.zw.main.interfaces.Session;
@@ -13,11 +13,11 @@ import zzuli.zw.main.interfaces.Session;
  * @Description 登录拦截器
  * @Date 2022/1/28 13:30
  */
-@Interceptor
+@Interceptor(order = 1)
 public class LoginInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(RequestParameter request, ResponseParameter response, Object handler) throws Exception {
-
+        //System.out.println("登录拦截中.....");
         Session session = request.getSession();
         if (session.getAttribute("user") != null){
             return true;
@@ -26,7 +26,7 @@ public class LoginInterceptor implements HandlerInterceptor {
             responseMessage.setRequest(request.getRequest());
             responseMessage.setCode(ResponseCode.AUTHORITY_ERROR);
             response.write(responseMessage);
-            request.closeConnection();
+            request.closeSocket();
             return false;
         }
     }
