@@ -1,6 +1,7 @@
 package zzuli.zw.pojo;
 
 import java.io.Serializable;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,6 +23,8 @@ public class Group implements Serializable {
     private String groupIntro;  //群简介
     private List<Member> memberList;   //群组所属成员
 
+    private Date createDate; //群组创建时间
+
     @Override
     public String toString() {
         return "Group{" +
@@ -32,6 +35,7 @@ public class Group implements Serializable {
                 ", groupName='" + groupName + '\'' +
                 ", groupIntro='" + groupIntro + '\'' +
                 ", memberList=" + memberList +
+                ", createDate=" + createDate +
                 '}';
     }
 
@@ -41,6 +45,14 @@ public class Group implements Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         Group group = (Group) o;
         return id == group.id && Objects.equals(groupAvatar, group.groupAvatar) && Objects.equals(groupName, group.groupName) && Objects.equals(groupIntro, group.groupIntro);
+    }
+
+    public Date getCreateDate() {
+        return createDate;
+    }
+
+    public void setCreateDate(Date createDate) {
+        this.createDate = createDate;
     }
 
     @Override

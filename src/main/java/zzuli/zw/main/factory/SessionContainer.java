@@ -17,6 +17,7 @@ public class SessionContainer<K,V> extends ConcurrentHashMap<String, Session> {
         getInstance().put(id,session);
     }
     public static Session getSession(String sessionId){
+        if (sessionId == null)return null;
         return getInstance().get(sessionId);
     }
     public static synchronized void remove(String sessionId){

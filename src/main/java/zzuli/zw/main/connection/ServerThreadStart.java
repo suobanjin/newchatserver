@@ -1,5 +1,6 @@
 package zzuli.zw.main.connection;
 
+import cn.hutool.core.thread.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zzuli.zw.main.annotation.BeanScan;
@@ -59,8 +60,8 @@ public class ServerThreadStart {
             while (!ss.isClosed()) {
                 Socket socket = ss.accept();
                 logger.info(socket.getInetAddress().getHostAddress() +"使用端口" + socket.getPort() + "连接成功!");
-                RequestServerThread requestServerThread = new RequestServerThread(socket);
-                new Thread(requestServerThread).start();
+                RequestServerThread requestServerThread = new RequestServerThread(socket,serverContext);
+                ThreadUtil.execute(requestServerThread);
             }
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
@@ -156,7 +157,6 @@ public class ServerThreadStart {
         }
         logger.info("resolver config completed");
         logger.info("resolver count " + ArgumentResolvers.getInstance().size());
-
     }
 
     /*String basePacket = ConfigUtils.getConfigAttribute(REQUEST_PACKET);

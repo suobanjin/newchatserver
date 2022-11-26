@@ -1,8 +1,10 @@
 package zzuli.zw.main.interfaces;
 
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
+
 import zzuli.zw.main.model.ResponseParameter;
+import zzuli.zw.main.model.protocol.ResponseMessage;
+
 import java.lang.reflect.Parameter;
 /**
  *@ClassName: HandlerMethodArgumentResolver

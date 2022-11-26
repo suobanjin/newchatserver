@@ -1,9 +1,6 @@
 package zzuli.zw.mapper;
 
 import org.junit.jupiter.api.Test;
-import zzuli.zw.domain.User;
-import zzuli.zw.service.LoginService;
-import zzuli.zw.service.LoginServiceImpl;
 
 /**
  * @ClassName LoginServiceTest
@@ -13,7 +10,7 @@ import zzuli.zw.service.LoginServiceImpl;
  * @Version 1.0
  */
 public class LoginServiceTest {
-    private LoginService loginService = new LoginServiceImpl();
+    //private LoginService loginService = new LoginServiceImpl();
 
     @Test
     public void test01(){

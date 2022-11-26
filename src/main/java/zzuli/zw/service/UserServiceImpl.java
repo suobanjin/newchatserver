@@ -1,97 +1,62 @@
 package zzuli.zw.service;
 
-import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.digest.MD5;
+import zzuli.zw.dao.UserDao;
 import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.annotation.Injection;
 import zzuli.zw.main.annotation.Transaction;
-import zzuli.zw.domain.User;
-import zzuli.zw.mapper.*;
+import zzuli.zw.pojo.User;
+import zzuli.zw.service.interfaces.UserService;
 
 /**
  * @ClassName UserServiceImpl
- * @Description 用户服务
+ * @Description: TODO
  * @Author 索半斤
- * @Date 2021/1/22 22:47
- * @Version 1.0
+ * @Datetime 2022年 11月 15日 16:39
+ * @Version: 1.0
  */
 @Bean("userService")
 @Transaction
-public class UserServiceImpl implements UserService{
-    @Injection(name = "userMapper")
-    private UserMapper userMapper;
-    @Injection(name = "messageMapper")
-    private MessageMapper messageMapper;
-    @Injection(name = "friendMapper")
-    private FriendMapper friendMapper;
-    @Injection(name = "friendGroupMapper")
-    private FriendGroupMapper friendGroupMapper;
-    @Injection(name = "loginMapper")
-    private LoginInfoMapper loginInfoMapper;
-    @Injection(name = "groupInfoMapper")
-    private GroupInfoMapper groupInfoMapper;
+public class UserServiceImpl implements UserService {
+    @Injection(name = "userDao")
+    private UserDao userDao;
     @Override
-    public String findUserHeaderByUsername(String username) {
-        return userMapper.findUserHeaderByUsername(username);
+    public User login(User user) {
+        User byAccount = userDao.findPassAndIdByAccount(user.getAccount());
+        if (byAccount == null)return null;
+        if (user.getPassword().equals(byAccount.getPassword())){
+            byAccount.setPassword(null);
+            return byAccount;
+        }
+        return null;
     }
-
-    /**
-     * @Author 索半斤
-     * @Description 根据用户id删除用户信息
-     * @Date 2022/1/20 11:02
-     * @Param [userId]
-     * @return int
-     **/
     @Override
     @Transaction
-    public int deleteUserByUserId(int userId) {
-        User userById = userMapper.findUserById(userId);
-        if (userById == null)return -1;
-        int i = loginInfoMapper.deleteLoginInfoByUserId(userId);
-        int i1 = friendMapper.deleteFriendRelationByUserId(userId);
-        int i2 = friendGroupMapper.deleteGroupByUserId(userId);
-        int i3 = messageMapper.deleteMessagesByUserId(userId);
-        int i4 = groupInfoMapper.deleteUserInGroupByUserId(userId);
-        int i5 = userMapper.deleteUserById(userId);
-        return i+i1+i2+i3+i4+i5;
-    }
-
-    /**
-     * @Author 索半斤
-     * @Description 登录校验
-     * @Date 2022/1/20 11:03
-     * @Param [username, password]
-     * @return int
-     **/
-    @Override
-    public int login(String username, String password) {
-        System.out.println(userMapper == null);
-        String userPasswordByUsername = userMapper.findUserPasswordByUsername(username);
-        if (userPasswordByUsername == null)return -1;
-        String md5 = SecureUtil.md5(password);
-        if (!md5.equals(userPasswordByUsername))return -1;
-        return 1;
+    public User findDetailUserInfo(int userId) {
+        return userDao.findDetailUserById(userId);
     }
 
     @Override
-    public User findUserInfoById(int userId) {
-        if (userId > Integer.MAX_VALUE || userId < Integer.MIN_VALUE)return null;
-        return userMapper.findUserById(userId);
-    }
-
-   /* @Override
-    public User findDetailUserInfo(String username) {
-        return userMapper.findDetailUserInfo(username);
+    public int updateUserInfoByAccount(User user) {
+        if (user == null)return -1;
+        return userDao.updateUserInfoByAccount(user);
     }
 
     @Override
-    @Transaction
-    public int updateUserInfo(User user) {
-        return userMapper.updateUserInfo(user);
+    public int updateUserStatus(int id, int status) {
+        return userDao.updateStatusById(id,status);
     }
 
     @Override
-    @Transaction
-    public int updateUserHeader(String username, String headerPath) {
-        return userMapper.updateUserHeader(username, headerPath);
-    }*/
+    public int updateUserHead(String imagePath, int id) {
+        if (imagePath == null)return -1;
+        return userDao.updateUserHeaderById(imagePath,id);
+    }
+
+    @Override
+    public int findUserStatus(String account) {
+        return userDao.findStatusByAccount(account);
+    }
+
+
 }

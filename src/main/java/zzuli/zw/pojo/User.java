@@ -1,11 +1,8 @@
 package zzuli.zw.pojo;
 
-import zzuli.zw.domain.Message;
-
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 /**
  * @ClassName User

@@ -1,10 +1,13 @@
 package zzuli.zw.request;
 
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.RequestParameter;
+import zzuli.zw.main.model.ResponseParameter;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.annotation.*;
 import zzuli.zw.config.Router;
-import zzuli.zw.domain.User;
-import zzuli.zw.service.UserService;
+import zzuli.zw.pojo.User;
+import zzuli.zw.service.interfaces.FriendService;
+import zzuli.zw.service.interfaces.UserService;
 
 /**
  * @author 索半斤
@@ -15,9 +18,8 @@ import zzuli.zw.service.UserService;
 @Request
 @Bean("friendRequest")
 public class FriendRequest {
-    //private UserService userService = AopUtils.aop(UserServiceImpl.class);
-    @Injection(name = "userService")
-    private UserService userService;
+    @Injection(name = "friendService")
+    private FriendService friendService;
     /**
      * @Author 索半斤
      * @Description 查找好友
@@ -25,10 +27,10 @@ public class FriendRequest {
      * @Param [request,response]
      * @return void
      **/
-    @RequestMapping(Router.DELETE_FRIEND)
+    @RequestMapping(Router.UPDATE_FRIEND_INFO)
     public ResponseMessage findFriends(@ParameterName("user") User user)  {
         String username = user.getUsername();
-        if (username != null && username.length() != 0){
+        if (username != null && username.length()  != 0){
             System.out.println(username);
         }
         //User objectFromString = ObjectMapperFactory.getObjectFromString(request.getResultContent(), User.class);
@@ -38,6 +40,21 @@ public class FriendRequest {
     @RequestMapping(Router.UPDATE_FRIEND_STATUS)
     public ResponseMessage updateFriendStatus(User user){
         String username = user.getUsername();
+        return null;
+    }
+
+    /**
+    * @Author 索半斤
+    * @Description 点赞信息更新
+    * @Date 17:11 2022/11/26
+    * @Param [request, response, num, friendId]
+    * @return zzuli.zw.main.model.protocol.ResponseMessage
+    **/
+    @RequestMapping(Router.UPDATE_FRIEND_LIKE)
+    public ResponseMessage updateLike(RequestParameter request,
+                                      ResponseParameter response,
+                                      @ParameterName("num")int num,
+                                      @ParameterName("friendId")int friendId){
         return null;
     }
 

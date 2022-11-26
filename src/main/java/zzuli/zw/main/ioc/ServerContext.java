@@ -3,16 +3,17 @@ package zzuli.zw.main.ioc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zzuli.zw.NewChatServerStart;
+import zzuli.zw.broadcast.UserBroadcast;
 import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.annotation.BeanScan;
 import zzuli.zw.main.annotation.Injection;
 import zzuli.zw.main.annotation.Transaction;
+import zzuli.zw.main.broadcast.Broadcast;
 import zzuli.zw.main.ioc.interfaces.BeanPostProcessor;
 import zzuli.zw.main.ioc.interfaces.InitializingBean;
-import zzuli.zw.request.FriendRequest;
 import zzuli.zw.main.aop.AopUtils;
 import zzuli.zw.main.utils.ClassUtil;
-
+import zzuli.zw.service.interfaces.UserService;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -138,13 +139,28 @@ public class ServerContext {
         return beanFactory.getBean(clazz);
     }
 
+    public Object getBeanBySuper(Class clazz){
+        List<Object> beans = this.beanFactory.getBeans();
+        for (Object bean : beans) {
+            Class<?>[] interfaces = bean.getClass().getInterfaces();
+            for (Class<?> anInterface : interfaces) {
+                if (anInterface.equals(clazz))return bean;
+            }
+        }
+        return null;
+    }
+
     public BeanFactory getBeanFactory() {
         return beanFactory;
     }
 
     public static void main(String[] args) {
-        ServerContext serverContext = new ServerContext(NewChatServerStart.class);
-        FriendRequest friendRequest = (FriendRequest) serverContext.getBean(FriendRequest.class);
         //friendRequest.test();
+        ServerContext serverContext = new ServerContext(NewChatServerStart.class);
+        UserService bean = (UserService) serverContext.getBeanBySuper(UserService.class);
+        System.out.println(bean);
+
+        //bean.broadcast(null);
+
     }
 }

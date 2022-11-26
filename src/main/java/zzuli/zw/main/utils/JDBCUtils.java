@@ -20,7 +20,9 @@ public class JDBCUtils {
     public static Connection getConnection(){
         Connection conn=tl.get();
         try {
-            if (conn!=null) return conn;
+            if (conn!=null){
+                return conn;
+            }
             return dataSource.getConnection();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -41,7 +43,6 @@ public class JDBCUtils {
      */
     public static void beginTransaction() throws SQLException {
         Connection conn = tl.get();
-        System.out.println(conn);
         if (conn != null) throw new SQLException("已经开启事务,请勿重复开启！");
         conn = dataSource.getConnection();
         conn.setAutoCommit(false);
@@ -56,7 +57,6 @@ public class JDBCUtils {
         if (conn!=null){
             conn.commit();
             conn.close();
-            conn=null;
             tl.remove();
         }else{
             throw new SQLException("事务还未开启,无法提交！");
@@ -70,7 +70,6 @@ public class JDBCUtils {
         if (conn!=null){
             conn.rollback();
             conn.close();
-            conn=null;
             tl.remove();
         }else{
             throw new SQLException("事务还未开始,无法回滚！");

@@ -13,7 +13,7 @@ import zzuli.zw.main.interfaces.HandlerInterceptor;
  * @date 2022/2/4
  * @className LogInterceptor
  */
-@Interceptor
+@Interceptor(order = 0)
 public class LogInterceptor implements HandlerInterceptor {
     private Logger logger = LoggerFactory.getLogger(LogInterceptor.class);
     @Override

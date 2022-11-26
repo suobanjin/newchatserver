@@ -1,18 +1,13 @@
 package zzuli.zw.main.connection;
 
-import cn.hutool.core.thread.ThreadUtil;
 import cn.hutool.core.util.RandomUtil;
 import zzuli.zw.config.Router;
-import zzuli.zw.domain.User;
-import zzuli.zw.main.broadcast.Broadcast;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import zzuli.zw.main.factory.SessionContainer;
 import zzuli.zw.main.factory.SocketContainer;
-import zzuli.zw.main.factory.ThreadContainer;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.UserSession;
-import zzuli.zw.service.*;
-import zzuli.zw.main.aop.AopUtils;
+import zzuli.zw.pojo.User;
 import zzuli.zw.main.utils.ProtocolUtils;
 import zzuli.zw.utils.RegexUtils;
 import zzuli.zw.main.utils.SocketUtils;
@@ -44,46 +39,46 @@ public class ServerThread implements Runnable {
                 ResponseMessage responseMessage = new ResponseMessage();
                 if (user == null || user.getPassword() == null || !RegexUtils.regexUsername(user.getUsername())) {
                     //responseMessage.setRequest(RequestType.LOGIN_FAIL);
-                    ProtocolUtils.send(responseMessage, socket);
+                    //ProtocolUtils.send(responseMessage, socket);
                     SocketUtils.closeSocket(socket);
                 } else {
                     //登录校验
-                    LoginService loginService = AopUtils.aop(UserServiceImpl.class);
-                    boolean isLogin = loginService.login(user);
-                    if (isLogin) {
+                    //LoginService loginService = AopUtils.aop(UserServiceImpl.class);
+                    //boolean isLogin = loginService.login(user);
+                    if (true) {
                         //登录成功将socket存入容器，id为用户id
                         SocketContainer.addSocket(user.getId(), socket);
                         //登录成功后创建session并存入Session容器中，id为随机生成
-                        UserService userService = AopUtils.aop(UserServiceImpl.class);
-                        User userInfo = userService.findUserInfoById(user.getId());
+                        //UserService userService = AopUtils.aop(UserServiceImpl.class);
+                        //User userInfo = userService.findUserInfoById(user.getId());
                         String sessionId = RandomUtil.randomString(26);
                         UserSession userSession = new UserSession(sessionId);
-                        userSession.setAttribute("user",userInfo);
+                        //userSession.setAttribute("user",userInfo);
                         SessionContainer.addSession(sessionId,userSession);
                         //发送登录成功信息
                         responseMessage.setSessionId(sessionId);
                         //responseMessage.setRequest(RequestType.LOGIN_SUCCESS);
-                        ProtocolUtils.send(responseMessage, socket);
+                        //ProtocolUtils.send(responseMessage, socket);
                         //通过线程发送响应信息
-                        RequestServerThread serverThread = new RequestServerThread(socket);
+                        //RequestServerThread serverThread = new RequestServerThread(socket,);
                         //通过通用响应请求通知其他用户上线信息
-                        Broadcast commonRequest = new Broadcast();
+                        //Broadcast commonRequest = new Broadcast();
                         //commonRequest.notifyOther(user.getUsername(),1);
                         //为用户开启独立线程
-                        ThreadUtil.execute(serverThread);
+                        //ThreadUtil.execute(serverThread);
                         //将用户通信线程加入容器进行管理
-                        ThreadContainer.addThread(user.getId(), serverThread);
+                        //ThreadContainer.addThread(user.getId(), serverThread);
                     } else {
                         //用户信息校验失败，返回登录失败信息，并将socket关闭
                         //responseMessage.setRequest(RequestType.LOGIN_FAIL);
-                        ProtocolUtils.send(responseMessage, socket);
+                        //ProtocolUtils.send(responseMessage, socket);
                         SocketUtils.closeSocket(socket);
                     }
                 }
             }else {
                 ResponseMessage responseMessage = new ResponseMessage();
                 //responseMessage.setRequest(RequestType.SERVER_ERROR);
-                ProtocolUtils.send(responseMessage, socket);
+                //ProtocolUtils.send(responseMessage, socket);
                 SocketUtils.closeSocket(socket);
             } /*else if (status == MessageType.REQUEST_UPDATE_CONTACT) {
                 //User user = result.getData();

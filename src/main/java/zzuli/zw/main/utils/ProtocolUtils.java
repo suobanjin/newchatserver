@@ -1,10 +1,11 @@
 package zzuli.zw.main.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import zzuli.zw.main.model.ResponseMessage;
 import zzuli.zw.main.factory.ObjectMapperFactory;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import java.io.*;
 import java.net.Socket;
+import java.util.Date;
 
 /**
  * @ClassName ProtocolUtils
@@ -14,7 +15,12 @@ import java.net.Socket;
  * @Version 1.0
  */
 public class ProtocolUtils {
-    public static void send(ResponseMessage responseMessage, Socket socket) throws IOException{
+    public synchronized static void send(ResponseMessage responseMessage, Socket socket) throws IOException{
+        responseMessage.setSendTime(new Date().getTime());
+        responseMessage.setVersion("Server1.0");
+        if (responseMessage.getContent() != null){
+            responseMessage.setContentLength(responseMessage.getContent().length());
+        }
         ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
         String string = objectMapper.writeValueAsString(responseMessage);
         System.out.println("send ---> " + string);
@@ -28,22 +34,7 @@ public class ProtocolUtils {
         bufferedWriter.flush();
     }
 
-    /*public static JsonResult<?> receive(Socket socket) throws IOException {
-        ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
-        InputStream inputStream = socket.getInputStream();
-        StringBuilder stringBuilder = new StringBuilder();
-        String result;
-        BufferedReader bufferedReader = new BufferedReader(
-                new InputStreamReader(inputStream)
-        );
-        while (!(result = bufferedReader.readLine()).equals("EOF")) {
-            stringBuilder.append(result);
-        }
-        result = stringBuilder.toString();
-        System.out.println("receive ---> " + result);
-        return objectMapper.readValue(result, JsonResult.class);
-    }*/
-    public static ResponseMessage receive(Socket socket) throws IOException {
+    public synchronized static ResponseMessage receive(Socket socket) throws IOException {
         ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
         InputStream inputStream = socket.getInputStream();
         if (inputStream.available() == 0 || inputStream.available() == -1)return null;
@@ -59,14 +50,21 @@ public class ProtocolUtils {
         System.out.println("receive ---> " + result);
         return objectMapper.readValue(result, ResponseMessage.class);
     }
-    public static  byte[] readInputStream(InputStream inputStream) throws IOException {
-        byte[] buffer = new byte[4096];
-        int len = 0;
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        while((len = inputStream.read(buffer)) != -1) {
-            bos.write(buffer, 0, len);
+
+    public  ResponseMessage receive2(Socket socket) throws IOException {
+        ObjectMapper objectMapper = ObjectMapperFactory.getNewInstance();
+        InputStream inputStream = socket.getInputStream();
+        if (inputStream.available() == 0 || inputStream.available() == -1)return null;
+        StringBuilder stringBuilder = new StringBuilder();
+        String result;
+        BufferedReader bufferedReader = new BufferedReader(
+                new InputStreamReader(inputStream)
+        );
+        while (!(result = bufferedReader.readLine()).equals("EOF")) {
+            stringBuilder.append(result);
         }
-        bos.close();
-        return bos.toByteArray();
+        result = stringBuilder.toString();
+        System.out.println("receive ---> " + result);
+        return objectMapper.readValue(result, ResponseMessage.class);
     }
 }

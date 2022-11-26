@@ -30,7 +30,6 @@ public class TransactionHandler implements InvocationHandler {
                 JDBCUtils.commitTransaction();
             }catch (Exception e){
                 JDBCUtils.rollbackTransaction();
-
             }
         }
         return o;

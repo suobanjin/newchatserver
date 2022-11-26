@@ -3,10 +3,10 @@ package zzuli.zw.socket;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Test;
 import zzuli.zw.config.Router;
-import zzuli.zw.domain.User;
-import zzuli.zw.main.model.ResponseMessage;
 import zzuli.zw.main.factory.ObjectMapperFactory;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.ProtocolUtils;
+import zzuli.zw.pojo.User;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -24,7 +24,7 @@ import java.util.Map;
 public class ConnectionTest {
     @Test
     public void test01() throws IOException, InterruptedException {
-        Socket socket = new Socket("localhost",5539);
+        Socket socket = new Socket("localhost",2077);
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setRequest(Router.LOGIN);
         Map<String,Object> requestMap = new HashMap<>();
@@ -33,7 +33,6 @@ public class ConnectionTest {
         user.setUsername("1234567");
         user.setPassword("123456");
         //requestMap.put("ints",1);
-        requestMap.put("age",12);
         requestMap.put("user",user);
         String s = ObjectMapperFactory.getInstance().writeValueAsString(requestMap);
         responseMessage.setContentMap(s);

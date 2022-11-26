@@ -1,10 +1,7 @@
 package zzuli.zw.utils;
 
 import org.junit.jupiter.api.Test;
-import zzuli.zw.domain.User;
 import zzuli.zw.main.aop.AopUtils;
-import zzuli.zw.service.LoginService;
-import zzuli.zw.service.LoginServiceImpl;
 
 /**
  * @ClassName AopUtilsTest
@@ -23,8 +20,8 @@ public class AopUtilsTest {
         LogHandler logHandler = new LogHandler(loginService);
         LoginService aop = (LoginService) Proxy.newProxyInstance(classLoader, interfaces, logHandler);
         aop.login(new User());*/
-        LoginService aop = AopUtils.aop(LoginServiceImpl.class, LoginService.class);
-        aop.login(new User());
+        /*LoginService aop = AopUtils.aop(LoginServiceImpl.class, LoginService.class);
+        aop.login(new User());*/
     }
 
     @Test

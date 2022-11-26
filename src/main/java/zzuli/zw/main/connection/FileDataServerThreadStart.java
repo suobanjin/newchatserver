@@ -20,7 +20,7 @@ public class FileDataServerThreadStart {
             fileServer = new ServerSocket(FILE_SERVER_PORT);
             while (!fileServer.isClosed()) {
                 Socket socket = fileServer.accept();
-                FileDataServerThread fileDataServerThread = new FileDataServerThread(socket,fileServer);
+                FileDataServerThread fileDataServerThread = new FileDataServerThread(socket);
                 ThreadUtil.execute(fileDataServerThread);
             }
         } catch (IOException e) {

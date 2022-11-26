@@ -1,18 +1,21 @@
 package zzuli.zw.request;
+
+import zzuli.zw.broadcast.UserBroadcast;
 import zzuli.zw.config.Router;
 import zzuli.zw.main.annotation.*;
 import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.domain.User;
 import zzuli.zw.main.interfaces.Session;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
-import zzuli.zw.service.UserService;
+import zzuli.zw.pojo.User;
+import zzuli.zw.pojo.model.StatusType;
+import zzuli.zw.service.interfaces.IndexService;
+import zzuli.zw.service.interfaces.UserService;
 import zzuli.zw.utils.RegexUtils;
+
 import java.io.IOException;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * @author 索半斤
@@ -25,53 +28,89 @@ import java.util.Map;
 public class LoginRequest {
     @Injection(name = "userService")
     private UserService userService;
-    @RequestMapping(Router.LOGIN)
-    public  void login(RequestParameter request,
-                       ResponseParameter response,
-                       @ParameterName("user")User user,
-                       @ParameterName("age") int age) throws IOException {
+    @Injection(name = "indexService")
+    private IndexService indexService;
+    @Injection(name = "userBroadcast")
+    private UserBroadcast broadcast;
+
+    @RequestMapping(request = Router.FIND_USER_STATUS)
+    public void checkStatus(@ParameterName("user") User user,
+                            RequestParameter request,
+                            ResponseParameter response) throws IOException {
+        //这里先记一个bug，就是当请求找不到的时候，没有默认返回值,明天再改
+        int status = userService.findUserStatus(user.getAccount());
+        if (!request.isConnection(user.getId())) {
+            status = StatusType.OFFLINE;
+            userService.updateUserStatus(user.getId(), status);
+        }
         ResponseMessage responseMessage = new ResponseMessage();
-        if (user == null || user.getPassword() == null || !RegexUtils.regexUsername(user.getUsername())) {
+        User responseUser = new User();
+        responseUser.setStatus(status);
+        responseUser.setAccount(user.getAccount());
+        responseMessage.setContentObject(responseUser);
+        try {
+            response.write(responseMessage);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            request.closeSocket();
+        }
+    }
+
+    @RequestMapping(Router.LOGIN)
+    public void login(RequestParameter request,
+                      ResponseParameter response,
+                      @ParameterName("user") User user) throws IOException {
+        ResponseMessage responseMessage = new ResponseMessage();
+        if (user == null || user.getPassword() == null || !RegexUtils.regexUsername(user.getAccount())) {
             responseMessage.setRequest(Router.LOGIN);
             responseMessage.setCode(ResponseCode.FAIL);
             response.write(responseMessage);
             request.closeConnection();
         } else {
+            int status = userService.findUserStatus(user.getAccount());
+            if (status != StatusType.OFFLINE) {
+                responseMessage.setCode(ResponseCode.FAIL);
+                responseMessage.setContent("该用户已经登录过了!");
+                response.write(responseMessage);
+                return;
+            }
             //登录校验
-            int isLogin = userService.login(user.getUsername(),user.getPassword());
-            if (isLogin >= 3) {
-                //登录成功后
-                User userInfo = userService.findUserInfoById(user.getId());
+            User isLogin = userService.login(user);
+            if (isLogin != null) {
+                //修改用户的登录状态
+                userService.updateUserStatus(isLogin.getId(), StatusType.ONLINE);
+                //将信息存入session
                 Session session = request.getSession();
-                session.setAttribute("user", userInfo);
+                session.setAttribute("user", isLogin);
                 //发送登录成功信息
+                isLogin = indexService.findIndexInfo(isLogin.getId());
                 responseMessage.setSessionId(session.getId());
                 responseMessage.setRequest(request.getRequest());
                 responseMessage.setCode(ResponseCode.SUCCESS);
+                responseMessage.setContentObject(isLogin);
                 response.write(responseMessage);
-                //通过通用响应请求通知其他用户上线信息
-                ResponseMessage commonResponseMessage = new ResponseMessage();
-                User responseUser = new User();
-                responseUser.setUsername(user.getUsername());
-                Map map = new HashMap();
-                map.put("user",responseUser);
-                commonResponseMessage.setContentMap(map);
-                request.broadcast().broadcast(commonResponseMessage,user.getUsername());
                 //登录成功,保持长连接状态
                 request.keepAlive();
+                //向好友发送上线提醒消息
+                ResponseMessage broadcastResponse = new ResponseMessage();
+                broadcastResponse.setRequest(Router.UPDATE_FRIEND_STATUS);
+                User responseUser = new User();
+                responseUser.setAccount(isLogin.getAccount());
+                responseUser.setId(isLogin.getId());
+                broadcastResponse.setContentObject(responseUser);
+                broadcast.broadcast(responseMessage, isLogin.getId());
+                //登录成功之后开启心跳检测，保证客户端和服务器端的通信状态
+                request.startHeartListener(isLogin.getId(), response);
             } else {
-                System.out.println(user);
                 //用户信息校验失败，返回登录失败信息，并将socket关闭
                 responseMessage.setRequest(request.getRequest());
                 responseMessage.setSendTime(new Date().getTime());
+                responseMessage.setContent("用户名或者密码错误,请稍后重试...");
                 responseMessage.setCode(ResponseCode.FAIL);
                 response.write(responseMessage);
-                request.closeConnection();
+                request.closeSocket();
             }
         }
     }
-    /*//登录成功将socket存入容器，id为用户id
-    SocketContainer.addSocket(user.getId(), socket);*/
-    //将用户通信线程加入容器进行管理
-    //ThreadContainer.addThread(user.getId(), request.getRequestThread());
 }

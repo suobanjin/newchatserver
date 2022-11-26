@@ -1,20 +1,19 @@
 package zzuli.zw.main.connection;
 
+import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.thread.ThreadUtil;
+import org.apache.commons.lang3.StringUtils;
 import zzuli.zw.config.Router;
-import zzuli.zw.domain.User;
 import zzuli.zw.main.factory.ObjectMapperFactory;
-import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.main.model.ResponseMessage;
-import zzuli.zw.service.*;
-import zzuli.zw.main.aop.AopUtils;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.ProtocolUtils;
-import zzuli.zw.utils.RegexUtils;
 import zzuli.zw.main.utils.SocketUtils;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
+import java.util.Arrays;
 
 /**
  * @ClassName FileDataServerThread
@@ -25,64 +24,88 @@ import java.net.Socket;
  */
 public class FileDataServerThread implements Runnable {
     private Socket socket;
-    private ServerSocket serverSocket;
-    public FileDataServerThread(Socket socket, ServerSocket serverSocket) {
+
+    public FileDataServerThread(Socket socket) {
         this.socket = socket;
-        this.serverSocket = serverSocket;
     }
+
     @Override
     @SuppressWarnings("unchecked")
     public void run() {
         try {
             //打印客户端信息
             System.out.println(socket.getInetAddress().getHostAddress() + "在文件服务器端进行了.........connected");
-            ResponseMessage result = ProtocolUtils.receive(socket);
-            int status = result.getRequest();
-            //登录前获取用户头像(客户端如果进行了缓存则无需进行获取)
-            if (status == Router.BEFORE_LOGIN) {
+            ResponseMessage result = readContent(socket.getInputStream(), 800);
+            int request = result.getRequest();
+            if (request == Router.FIND_COMMON_PIC) {
                 String content = result.getContent();
-                User data = ObjectMapperFactory.getInstance().readValue(content,User.class);
-                ResponseMessage responseMessage = new ResponseMessage();
-                if (data == null || data.getUsername() == null || !RegexUtils.regexUsername(data.getUsername())) {
-                    responseMessage.setRequest(status);
-                    responseMessage.setCode(ResponseCode.FAIL);
-                } else {
-                    LoginService loginService = AopUtils.aop(LoginServiceImpl.class,LoginService.class);
-                    String username = data.getUsername();
-                    String userHeaderEncode = loginService.findHeadPictureByUsername(username);
-                    responseMessage.setRequest(status);
-                    responseMessage.setCode(ResponseCode.SUCCESS);
-                    responseMessage.setContentMap(userHeaderEncode);
+                content = content.replaceAll("\\\\", "\\\\\\\\");
+                content = StringUtils.deleteWhitespace(content);
+                content = content.replaceAll("\u202a", "");
+                FileInputStream inputStream = new FileInputStream(content);
+                byte[] bytes = new byte[1024];
+                int len;
+                while((len = inputStream.read(bytes)) != -1){
+                    socket.getOutputStream().write(bytes,0,len);
+                    socket.getOutputStream().flush();
                 }
-                ProtocolUtils.send(responseMessage, socket);
-                SocketUtils.closeSocket(socket);
-              //根据图片地址获取图片
-            }else if (status == Router.FIND_COMMON_PIC){
-                String content = result.getContent();
-                Runnable runnable = new HeaderImageRequestThread(socket, content);
-                ThreadUtil.execute(runnable);
-            } /*else if (status == MessageType.REQUEST_FRIEND_IMAGE) {
-                //好友头像的地址
-                String content = result.getContent();
-                Runnable runnable = new HeaderImageRequestThread(socket, content);
-                ThreadUtil.execute(runnable);
-            }else if (status == MessageType.REQUEST_FIND_INFO_IMAGE){
-                String message = result.getContent();
-                Runnable runnable = new HeaderImageRequestThread(socket, message);
-                ThreadUtil.execute(runnable);
-            }*/ else {
+                inputStream.close();
+            } else {
                 ResponseMessage responseMessage = new ResponseMessage();
-                responseMessage.setRequest(status);
+                responseMessage.setRequest(request);
                 ProtocolUtils.send(responseMessage, socket);
                 SocketUtils.closeSocket(socket);
             }
         } catch (Exception e) {
-            try {
-                serverSocket.close();
-            }catch (IOException e1){
-                e1.printStackTrace();
-            }
+            SocketUtils.closeSocket(socket);
             e.printStackTrace();
+        } finally {
+            SocketUtils.closeSocket(socket);
         }
+    }
+
+    public void readStreamWithRecursion(ByteArrayOutputStream output, InputStream inStream, int timeout) throws Exception {
+        long start = System.currentTimeMillis();
+        //超时退出
+        while (inStream.available() == 0) {
+            if ((System.currentTimeMillis() - start) > timeout) {
+                throw new SocketTimeoutException("超时读取");
+            }
+        }
+        byte[] buffer = new byte[2048];
+        int read = inStream.read(buffer);
+        output.write(buffer, 0, read);
+        int wait = readWait();
+        long startWait = System.currentTimeMillis();
+        boolean checkExist = false;
+        while (System.currentTimeMillis() - startWait <= wait) {
+            int a = inStream.available();
+            if (a > 0) {
+                checkExist = true;
+                break;
+            }
+        }
+        if (checkExist) {
+            readStreamWithRecursion(output, inStream, timeout);
+        }
+
+    }
+
+    protected int readWait() {
+        return 100;
+    }
+
+    private byte[] readStream(InputStream inStream, int timeout) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        readStreamWithRecursion(output, inStream,timeout);
+        output.close();
+        //int size = output.size();
+        return output.toByteArray();
+    }
+
+    private ResponseMessage readContent(InputStream inStream,int timeout) throws Exception {
+        byte[] bytes = readStream(inStream, timeout);
+        if (bytes == null || bytes.length == 0)return null;
+        return ObjectMapperFactory.getInstance().readValue(bytes,ResponseMessage.class);
     }
 }

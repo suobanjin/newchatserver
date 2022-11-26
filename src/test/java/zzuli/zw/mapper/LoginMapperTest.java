@@ -1,7 +1,6 @@
 package zzuli.zw.mapper;
 
 import org.junit.jupiter.api.Test;
-import zzuli.zw.domain.User;
 
 /**
  * @ClassName LoginMapperTest

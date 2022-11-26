@@ -2,19 +2,22 @@ package zzuli.zw.main.connection;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import zzuli.zw.main.connection.DispatcherRequest;
+import zzuli.zw.config.Router;
 import zzuli.zw.main.factory.InterceptorsQueue;
+import zzuli.zw.main.factory.SessionContainer;
 import zzuli.zw.main.interfaces.HandlerInterceptor;
 import zzuli.zw.main.factory.ObjectMapperFactory;
+import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.utils.ConfigUtils;
 import zzuli.zw.main.utils.ProtocolUtils;
 import zzuli.zw.main.utils.SocketUtils;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -33,9 +36,11 @@ public class RequestServerThread implements Runnable {
     private static final String attribute = "notInterceptorRequest";
     private static final List<Integer> list = new CopyOnWriteArrayList<>();
     private AtomicBoolean flag = new AtomicBoolean(true);
+    private ServerContext serverContext;
 
-    public RequestServerThread(Socket socket) {
+    public RequestServerThread(Socket socket, ServerContext serverContext) {
         this.socket = socket;
+        this.serverContext = serverContext;
     }
 
     //关闭当前线程
@@ -51,11 +56,6 @@ public class RequestServerThread implements Runnable {
                 SocketUtils.closeSocket(socket);
                 break;
             }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
             ResponseMessage result = null;
             try {
                 result = ProtocolUtils.receive(socket);
@@ -66,6 +66,7 @@ public class RequestServerThread implements Runnable {
             } catch (Exception e) {
                 if (result == null){
                     ResponseMessage response = new ResponseMessage();
+                    response.setRequest(Router.ILLEGAL_REQUEST);
                     response.setCode(ResponseCode.REQUEST_ERROR);
                     try {
                         ProtocolUtils.send(response,socket);
@@ -74,7 +75,7 @@ public class RequestServerThread implements Runnable {
                     }
                 }else {
                     ResponseMessage responseMessage = new ResponseMessage();
-                    responseMessage.setRequest(result.getRequest());
+                    responseMessage.setRequest(Router.ILLEGAL_REQUEST);
                     responseMessage.setCode(ResponseCode.SERVER_ERROR);
                     try {
                         ProtocolUtils.send(responseMessage,socket);
@@ -84,64 +85,18 @@ public class RequestServerThread implements Runnable {
                 }
                 e.printStackTrace();
             }
-            /*try {
-                ResponseMessage result = ProtocolUtils.receive(socket);
-                if (result == null) continue;
-                //int request = result.getRequest();
-                //if (request == RequestType.CLOSE_SOCKET_REQUEST) flag.set(false);
-                DispatcherRequest dispatcherRequest = new DispatcherRequest();
-                RequestParameter requestParameter = initRequestParameter(result);
-                if (requestParameter == null) continue;
-                ResponseParameter responseParameter = initResponseParameter();
-                initNotInterceptorBeans();
-                if (list.size() == 0 || !list.contains(requestParameter.getRequest())) { //配置文件中没有配置放行的请求
-                    ArrayBlockingQueue<HandlerInterceptor> interceptors = InterceptorsQueue.getInstance();
-                    int i = 0;
-                    boolean isContinue = true;
-                    try {
-                        if (interceptors.size() != 0) { //配置了拦截器则依次执行配置的前置拦截方法
-                            for (HandlerInterceptor interceptor : interceptors) {
-                                boolean b = interceptor.preHandle(requestParameter, responseParameter, null);
-                                i++;
-                                isContinue = b;
-                                if (!b) break;
-                            }
-                        }
-                        if (isContinue) {
-                            dispatcherRequest.doRequest(requestParameter, responseParameter);
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        if (i != 0) { // 执行后置拦截
-                            for (int j = 0; j < i; j++) {
-                                interceptors.peek().afterCompletion(requestParameter, responseParameter, null, e);
-                            }
-                        }
-                    } finally {
-                        if (i != 0) {
-                            for (int j = 0; j < i; j++) { // 执行最终拦截
-                                interceptors.peek().postHandle(requestParameter, responseParameter, null);
-                            }
-                        }
-                    }
-                } else {
-                    dispatcherRequest.doRequest(requestParameter, responseParameter); //没有配置拦截器则直接执行请求
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }*/
         }
     }
 
 
     public synchronized boolean handlerRequest(ResponseMessage result) throws Exception {
-        //int request = result.getRequest();
-        //if (request == RequestType.CLOSE_SOCKET_REQUEST) flag.set(false);
         DispatcherRequest dispatcherRequest = new DispatcherRequest();
         RequestParameter requestParameter = initRequestParameter(result);
         if (requestParameter == null) return false;
         ResponseParameter responseParameter = initResponseParameter();
-        initNotInterceptorBeans();
+        if (list.size() == 0) {
+            initNotInterceptorBeans();
+        }
         if (list.size() == 0 || !list.contains(requestParameter.getRequest())) { //配置文件中没有配置放行的请求
             ArrayBlockingQueue<HandlerInterceptor> interceptors = InterceptorsQueue.getInstance();
             int i = 0;
@@ -191,7 +146,7 @@ public class RequestServerThread implements Runnable {
         requestParameter.setRequest(responseMessage.getRequest());
         requestParameter.setUrl(responseMessage.getUrl());
         requestParameter.setRequestSocket(socket);
-        requestParameter.setRequest(responseMessage.getRequest());
+        requestParameter.setSession(SessionContainer.getSession(responseMessage.getSessionId()));
         requestParameter.setStatus(responseMessage.getCode());
         requestParameter.setRequestThread(this);
         requestParameter.setIp(socket.getInetAddress().getHostAddress());
@@ -201,18 +156,17 @@ public class RequestServerThread implements Runnable {
         requestParameter.setTo(responseMessage.getTo());
         requestParameter.setRequestType(responseMessage.getRequestType());
         requestParameter.setProtocolVersion(responseMessage.getVersion());
+        requestParameter.setServerContext(this.serverContext);
+        requestParameter.setKeepAlive(responseMessage.isKeepAlive());
         ObjectMapper instance = ObjectMapperFactory.getInstance();
         try {
+            Map map;
             if (responseMessage.getContent() == null || responseMessage.getContent().length() == 0) {
-                ResponseMessage response = new ResponseMessage();
-                response.setRequest(responseMessage.getRequest());
-                response.setCode(ResponseCode.PARAMETER_ERROR);
-                ProtocolUtils.send(response, socket);
-                this.flag.set(false);
-                return null;
+                map = new HashMap();
+            }else {
+                map = instance.readValue(responseMessage.getContent(), Map.class);
             }
-            Map map = instance.readValue(responseMessage.getContent(), Map.class);
-            requestParameter.setRequestData(map);
+             requestParameter.setRequestData(map);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             return null;

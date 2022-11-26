@@ -3,9 +3,9 @@ package zzuli.zw.main.argumentResolver;
 import cn.hutool.core.bean.BeanUtil;
 import zzuli.zw.main.annotation.ParameterName;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.ClassUtil;
 import java.lang.reflect.Parameter;
 import java.util.Map;
@@ -29,6 +29,8 @@ public class BeanParameterResolver implements HandlerMethodArgumentResolver {
                                   RequestParameter request,
                                   ResponseParameter response,
                                   ResponseMessage responseMessage) throws Exception {
+        if (parameter.getType() == request.getClass())return request;
+        if (parameter.getType() == response.getClass())return response;
         ParameterName annotation = parameter.getAnnotation(ParameterName.class);
         String name;
         if (annotation == null){

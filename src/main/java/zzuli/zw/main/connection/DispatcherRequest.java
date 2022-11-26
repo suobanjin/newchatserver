@@ -1,5 +1,6 @@
 package zzuli.zw.main.connection;
 
+import zzuli.zw.config.Router;
 import zzuli.zw.main.annotation.RequestMapping;
 import zzuli.zw.main.baseRequest.BaseRequest;
 import zzuli.zw.main.exception.ServerException;
@@ -8,12 +9,13 @@ import zzuli.zw.main.factory.ArgumentResolvers;
 import zzuli.zw.main.factory.RequestBeanContainer;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseCode;
-import zzuli.zw.main.model.ResponseMessage;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
+import java.util.Map;
 
 /**
  * @author 索半斤
@@ -26,38 +28,53 @@ public class DispatcherRequest extends BaseRequest {
     public void doRequest(RequestParameter request, ResponseParameter response) throws Exception {
         if (RequestBeanContainer.getInstance().size() == 0){
             responseError(response);
+            request.closeSocket();
             throw new ServerException("RequestBeans don`t init...");
         }
         String url = request.getUrl();
         if (url == null || url.length() == 0){
             int requestMapping = request.getRequest();
-            RequestBeanContainer.getInstance().forEach((key,value) -> {
-                Method[] methods = value.getClass().getMethods();
+            boolean isEnd = false;
+            for (Map.Entry<String, Object> entry : RequestBeanContainer.getInstance().entrySet()) {
+                Method[] methods = entry.getValue().getClass().getMethods();
                 for (Method method : methods) {
                     if (method.getAnnotation(RequestMapping.class) == null)continue;
                     if (method.getAnnotation(RequestMapping.class).value() == requestMapping) {
-                        processParameters(method,request,response,value);
-                        return;
+                        processParameters(method,request,response,entry.getValue());
+                        isEnd = true;
                     }else if (method.getAnnotation(RequestMapping.class).request() == requestMapping){
-                        processParameters(method,request,response,value);
-                        return;
+                        processParameters(method,request,response,entry.getValue());
+                        isEnd = true;
                     }
                 }
-            });
+            }
+            if (!isEnd){
+                ResponseMessage responseMessage = new ResponseMessage();
+                responseMessage.setRequest(Router.ILLEGAL_REQUEST);
+                responseMessage.setCode(ResponseCode.REQUEST_NOT_FOUND);
+                response.write(responseMessage);
+            }
         }else {
             Object baseRequest = RequestBeanContainer.getRequest(url);
             if (baseRequest != null) {
                 int requestMapping = request.getRequest();
+                boolean isEnd = false;
                 Method[] methods = baseRequest.getClass().getMethods();
                 for (Method method : methods) {
                     if (method.getAnnotation(RequestMapping.class) == null)continue;
                     if (method.getAnnotation(RequestMapping.class).value() == requestMapping) {
                         processParameters(method,request,response,baseRequest);
-                        return;
+                        isEnd = true;
                     }else if (method.getAnnotation(RequestMapping.class).request() == requestMapping){
                         processParameters(method,request,response,baseRequest);
-                        return;
+                        isEnd = true;
                     }
+                }
+                if (!isEnd){
+                    ResponseMessage responseMessage = new ResponseMessage();
+                    responseMessage.setRequest(Router.ILLEGAL_REQUEST);
+                    responseMessage.setCode(ResponseCode.REQUEST_NOT_FOUND);
+                    response.write(responseMessage);
                 }
             }else{
                 responseError(response);
@@ -75,7 +92,7 @@ public class DispatcherRequest extends BaseRequest {
      **/
     private void responseError(ResponseParameter response) throws IOException {
         ResponseMessage responseMessage = new ResponseMessage();
-        //responseMessage.setRequest(RequestType.SERVER_ERROR);
+        responseMessage.setRequest(Router.ILLEGAL_REQUEST);
         responseMessage.setCode(ResponseCode.SERVER_ERROR);
         response.write(responseMessage);
     }
@@ -86,33 +103,52 @@ public class DispatcherRequest extends BaseRequest {
      * @Param [method, request, response, value]
      * @return void
      **/
-    private void processParameters(Method method, RequestParameter request, ResponseParameter response, Object value){
+    private void processParameters(Method method, RequestParameter request, ResponseParameter response, Object value)  {
         try {
             int parameterCount = method.getParameterCount();
             Object[] objects = new Object[parameterCount];
             Parameter[] parameters = method.getParameters();
             for (int i = 0; i< parameterCount;i++ ) {
                 Parameter parameter = parameters[i];
-                HandlerMethodArgumentResolver argumentResolver = ArgumentResolvers.getArgumentResolverCache(parameter.getType());
+                HandlerMethodArgumentResolver argumentResolver = ArgumentResolvers.getInstance().getArgumentResolverCache(parameter.getType());
                 if (argumentResolver != null){
                     Object o = argumentResolver.resolveArgument(parameter,request,response,request.getResult());
                     objects[i] = o;
                 }else {
                     for (HandlerMethodArgumentResolver resolver : ArgumentResolvers.getInstance()) {
                         if (resolver.supportsParameter(parameter)) {
-                            ArgumentResolvers.addArgumentResolverCache(parameter.getType(),resolver);
+                            ArgumentResolvers.getInstance().addArgumentResolverCache(parameter.getType(),resolver);
                             Object o = resolver.resolveArgument(parameter, request, response, request.getResult());
                             objects[i] = o;
+                            break;
                         }
                     }
                 }
             }
-            // System.out.println(Arrays.toString(objects));
-            Object responseMessage = method.invoke(value,objects);
+            if (objects.length != parameters.length){
+                ResponseMessage responseMessage = new ResponseMessage();
+                responseMessage.setRequest(Router.ILLEGAL_REQUEST);
+                responseMessage.setCode(ResponseCode.PARAMETER_ERROR);
+                try {
+                    response.write(responseMessage);
+                }catch (Exception ex){
+                    ex.printStackTrace();
+                }
+                return;
+            }
+            Object responseMessage = method.invoke(value, objects);
             if (responseMessage != null) {
                 response.write((ResponseMessage)responseMessage);
             }
         } catch (Exception e) {
+            ResponseMessage responseMessage = new ResponseMessage();
+            responseMessage.setRequest(Router.ILLEGAL_REQUEST);
+            responseMessage.setCode(ResponseCode.PARAMETER_ERROR);
+            try {
+                response.write(responseMessage);
+            }catch (Exception ex){
+                ex.printStackTrace();
+            }
             e.printStackTrace();
         }
     }

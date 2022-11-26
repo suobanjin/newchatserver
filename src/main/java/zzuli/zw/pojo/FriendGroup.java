@@ -1,7 +1,5 @@
 package zzuli.zw.pojo;
 
-import zzuli.zw.domain.User;
-
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;

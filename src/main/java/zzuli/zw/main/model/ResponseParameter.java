@@ -1,10 +1,16 @@
 package zzuli.zw.main.model;
 
-import zzuli.zw.main.model.ResponseMessage;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import zzuli.zw.main.factory.ObjectMapperFactory;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.ProtocolUtils;
+
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.util.Date;
 
 /**
  * @ClassName ResponseParameter
@@ -46,7 +52,22 @@ public class ResponseParameter {
     }
     public void write(ResponseMessage data) throws IOException {
         this.jsonResult = data;
-        ProtocolUtils.send(jsonResult, responseSocket);
+        data.setSendTime(new Date().getTime());
+        data.setVersion("Server1.0");
+        if (data.getContent() != null){
+            data.setContentLength(data.getContent().length());
+        }
+        ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
+        String string = objectMapper.writeValueAsString(data);
+        System.out.println("send ---> " + string);
+        OutputStream outputStream = responseSocket.getOutputStream();
+        BufferedWriter bufferedWriter = new BufferedWriter(
+                new OutputStreamWriter(outputStream)
+        );
+        bufferedWriter.write(string+"\n");
+        bufferedWriter.newLine();
+        bufferedWriter.write("EOF\n");
+        bufferedWriter.flush();
     }
     public Socket getResponseSocket() {
         return responseSocket;

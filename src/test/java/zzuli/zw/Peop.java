@@ -1,17 +1,13 @@
 package zzuli.zw;
 
-import org.apache.commons.dbutils.handlers.BeanHandler;
 import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.junit.jupiter.api.Test;
 
-import zzuli.zw.main.utils.JDBCUtils;
 import zzuli.zw.pojo.*;
-import zzuli.zw.utils.TxQueryRunner;
+import zzuli.zw.main.utils.TxQueryRunner;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.function.Predicate;
 
 public class Peop {
     int id;

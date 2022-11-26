@@ -1,15 +1,25 @@
 package zzuli.zw.main.model;
 
 import cn.hutool.core.util.RandomUtil;
-import zzuli.zw.domain.User;
+import zzuli.zw.config.Router;
 import zzuli.zw.main.broadcast.Broadcast;
 import zzuli.zw.main.connection.RequestServerThread;
+import zzuli.zw.main.factory.HeartBeatContainer;
 import zzuli.zw.main.factory.SocketContainer;
 import zzuli.zw.main.factory.ThreadContainer;
 import zzuli.zw.main.interfaces.Session;
 import zzuli.zw.main.factory.SessionContainer;
+import zzuli.zw.main.ioc.ServerContext;
+import zzuli.zw.main.model.protocol.ResponseMessage;
+import zzuli.zw.main.utils.SocketUtils;
+import zzuli.zw.pojo.User;
+import zzuli.zw.pojo.model.StatusType;
+import zzuli.zw.request.HeartListenerRequest;
+
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.Socket;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +53,14 @@ public class RequestParameter implements Serializable {
 
     private String protocolVersion;
 
+    private static final int TIMEOUT = 50000;
+
+    private Thread heartListenerThread;
+
+    private ServerContext serverContext;
+
+    private boolean keepAlive;
+
     @Override
     public String toString() {
         return "RequestParameter{" +
@@ -61,6 +79,21 @@ public class RequestParameter implements Serializable {
                 '}';
     }
 
+    public boolean isKeepAlive() {
+        return keepAlive;
+    }
+
+    public void setKeepAlive(boolean keepAlive) {
+        this.keepAlive = keepAlive;
+    }
+
+    public ServerContext getServerContext() {
+        return serverContext;
+    }
+
+    public void setServerContext(ServerContext serverContext) {
+        this.serverContext = serverContext;
+    }
 
     public Broadcast getBroadcast() {
         return broadcast;
@@ -195,15 +228,13 @@ public class RequestParameter implements Serializable {
     }
 
     public Session getSession() {
-        String sessionId = getResult().getSessionId();
-        if (sessionId == null){
-            sessionId = RandomUtil.randomString(26);
+        if (this.session == null){
+            String sessionId = RandomUtil.randomString(26);
             this.session = new UserSession(sessionId);
             SessionContainer.addSession(sessionId,this.session);
             getResult().setSessionId(sessionId);
             return this.session;
         }
-        this.session = SessionContainer.getSession(sessionId);
         return this.session;
     }
 
@@ -218,11 +249,19 @@ public class RequestParameter implements Serializable {
     }
 
     public Broadcast broadcast() {
-        if (broadcast == null)this.broadcast = new Broadcast();
-        return broadcast;
+        if (this.broadcast == null){
+            this.broadcast = (Broadcast) this.serverContext.getBeanBySuper(Broadcast.class);
+        }
+        return this.broadcast;
+    }
+
+    public boolean hasKeepAlive(){
+        if (getRequestThread() == null || requestSocket == null || this.session == null)return false;
+        return true;
     }
     public boolean keepAlive(){
         if (getRequestThread() == null || requestSocket == null)return false;
+        if (this.session == null) return false;
         List<Object> attributes = session.getAttributes();
         for (Object attribute : attributes) {
             if (attribute instanceof User){
@@ -250,10 +289,23 @@ public class RequestParameter implements Serializable {
             if (attributes.size() == 0)return false;
             for (Object attribute : attributes) {
                 if (attribute instanceof User){
+                    //从管理线程中移除，并关闭通信线程
                     ThreadContainer.removeThread(((User) attribute).getId());
                     getRequestThread().close();
+                    //移除Socket
                     SocketContainer.getInstance().remove(((User) attribute).getId());
+                    //移除Session
                     SessionContainer.getInstance().remove(session.getId());
+                    //停止心跳检测
+                    this.stopHeartListener();
+                    //向其它用户发送广播
+                    ResponseMessage responseMessage = new ResponseMessage();
+                    responseMessage.setRequest(Router.UPDATE_FRIEND_STATUS);
+                    User user = new User();
+                    user.setId(((User) attribute).getId());
+                    user.setStatus(StatusType.OFFLINE);
+                    responseMessage.setContentObject(user);
+                    this.getBroadcast().closeBroadcast(responseMessage,((User) attribute).getId());
                     return true;
                 }
             }
@@ -273,5 +325,80 @@ public class RequestParameter implements Serializable {
         return true;
     }
 
+    public boolean closeSocket(Socket socket){
+        if (socket.isClosed())return true;
+        SocketUtils.closeSocket(socket);
+        getRequestThread().close();
+        return true;
+    }
 
+    public boolean closeSocket(){
+        if (this.requestSocket == null)return false;
+        if (requestSocket.isClosed())return true;
+        SocketUtils.closeSocket(this.requestSocket);
+        getRequestThread().close();
+        return true;
+    }
+
+    public boolean isHeartListenerStart(){
+        if (this.heartListenerThread == null)return false;
+        return true;
+    }
+    public boolean isClosed(){
+        return this.requestSocket.isClosed();
+    }
+
+    public boolean isConnection(int userId){
+        if (ThreadContainer.getThread(userId) == null || SocketContainer.getSocket(userId) ==  null)return false;
+        for (Map.Entry<String, Session> entry : SessionContainer.getInstance().entrySet()) {
+            if (((User)entry.getValue().getAttribute("user")).getId() == userId)return true;
+        }
+        return false;
+    }
+    public void startHeartListener(int userId,
+                                   ResponseParameter response){
+        if (this.heartListenerThread != null)throw new RuntimeException("已经开启心跳检测......");
+        this.heartListenerThread = new Thread(() -> {
+            HeartBeatContainer.addHeartBeat(this.requestSocket,new Date());
+            while (HeartBeatContainer.getLastDate(this.requestSocket) != null){
+                if (System.currentTimeMillis() - HeartBeatContainer.getLastDate(requestSocket).getTime() > TIMEOUT){
+                    System.out.println("heart");
+                    ResponseMessage commonResponseMessage = new ResponseMessage();
+                    commonResponseMessage.setRequest(Router.UPDATE_FRIEND_STATUS);
+                    commonResponseMessage.setCode(ResponseCode.SUCCESS);
+                    commonResponseMessage.setFrom(userId);
+                    commonResponseMessage.setKeepAlive(true);
+                    commonResponseMessage.setSendTime(new Date().getTime());
+                    commonResponseMessage.setContentLength(0);
+                    this.broadcast().closeBroadcast(commonResponseMessage,userId);
+                    this.closeConnection(userId);
+                    break;
+                }/*else {
+                    try {
+                        ResponseMessage responseMessage = new ResponseMessage();
+                        responseMessage.setRequest(Router.HEART_LISTENER);
+                        responseMessage.setCode(ResponseCode.SUCCESS);
+                        responseMessage.setSendTime(new Date().getTime());
+                        responseMessage.setSessionId(this.getSession().getId());
+                        responseMessage.setContentLength(0);
+                        responseMessage.setKeepAlive(true);
+                        response.write(responseMessage);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }*/
+            }
+        });
+        this.heartListenerThread.start();
+    }
+
+    public void stopHeartListener(){
+        if (HeartBeatContainer.getInstance().get(this.requestSocket) == null)return;
+        HeartBeatContainer.addHeartBeat(this.requestSocket,null);
+        HeartBeatContainer.removeHeartBeat(this.requestSocket);
+    }
+
+    public void updateHeartListener(){
+        HeartBeatContainer.addHeartBeat(this.requestSocket,new Date());
+    }
 }

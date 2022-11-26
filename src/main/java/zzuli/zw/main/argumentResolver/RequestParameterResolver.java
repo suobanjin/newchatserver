@@ -1,8 +1,8 @@
 package zzuli.zw.main.argumentResolver;
 import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
+import zzuli.zw.main.model.protocol.ResponseMessage;
 
 import java.lang.reflect.Parameter;
 
@@ -19,7 +19,7 @@ public class RequestParameterResolver implements HandlerMethodArgumentResolver {
     @Override
     public boolean supportsParameter(Parameter parameter) {
         Class<?> type = parameter.getType();
-        return type == RequestParameter.class;
+        return type.equals(RequestParameter.class);
     }
 
     @Override
