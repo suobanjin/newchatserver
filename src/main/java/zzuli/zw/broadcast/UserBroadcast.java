@@ -42,9 +42,11 @@ public class UserBroadcast implements Broadcast {
         List<Integer> list = friendService.findFriendIds(userId);
         if (list == null || list.size() == 0)return;
         for (Integer integer : list) {
-            if (socketContainer.containsKey(integer)){
+            Socket socket = SocketContainer.getSocket(integer);
+            if (socket != null && !socket.isClosed()){
                 try {
                     ProtocolUtils.send(responseMessage, socketContainer.get(integer));
+                    break;
                 }catch (Exception e){
                     e.printStackTrace();
                 }
@@ -67,7 +69,9 @@ public class UserBroadcast implements Broadcast {
         for (Integer integer : list) {
             if (socketContainer.containsKey(integer)){
                 try {
-                    ProtocolUtils.send(responseMessage, socketContainer.get(integer));
+                    if (!socketContainer.get(integer).isClosed()) {
+                        ProtocolUtils.send(responseMessage, socketContainer.get(integer));
+                    }
                 }catch (Exception e){
                     e.printStackTrace();
                 }

@@ -35,6 +35,8 @@ public class User implements Serializable {
 
     private List<ChatRecord> chatRecords;     //用户的聊天记录(离线消息)
 
+    private PhotoWall photoWall;
+
     @Override
     public String toString() {
         return "User{" +
@@ -57,7 +59,16 @@ public class User implements Serializable {
                 ", groupGroupList=" + groupGroupList +
                 ", friendRequestRecords=" + friendRequestRecords +
                 ", chatRecords=" + chatRecords +
+                ", photoWall=" + photoWall +
                 '}';
+    }
+
+    public PhotoWall getPhotoWall() {
+        return photoWall;
+    }
+
+    public void setPhotoWall(PhotoWall photoWall) {
+        this.photoWall = photoWall;
     }
 
     public List<ChatRecord> getChatRecords() {

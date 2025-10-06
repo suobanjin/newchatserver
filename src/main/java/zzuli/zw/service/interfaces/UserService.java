@@ -9,4 +9,6 @@ public interface UserService {
     int updateUserStatus(int id,int status);
     int updateUserHead(String imagePath,int id);
     int findUserStatus(String account);
+
+    void test();
 }

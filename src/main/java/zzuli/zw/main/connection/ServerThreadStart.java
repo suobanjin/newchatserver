@@ -109,7 +109,7 @@ public class ServerThreadStart {
             }
         }
         logger.info("requestBeans config completed");
-        logger.info("requestBeans count " + RequestBeanContainer.getInstance().size());
+        logger.info("requestBeans count {}", RequestBeanContainer.getInstance().size());
     }
 
     /**

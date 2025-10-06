@@ -1,11 +1,13 @@
 package zzuli.zw.service;
 
-import cn.hutool.crypto.digest.MD5;
 import zzuli.zw.dao.UserDao;
+import zzuli.zw.dao.UserInfoMapper;
 import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.annotation.Injection;
 import zzuli.zw.main.annotation.Transaction;
+import zzuli.zw.main.annotation.Value;
 import zzuli.zw.pojo.User;
+import zzuli.zw.pojo.UserInfo;
 import zzuli.zw.service.interfaces.UserService;
 
 /**
@@ -20,6 +22,11 @@ import zzuli.zw.service.interfaces.UserService;
 public class UserServiceImpl implements UserService {
     @Injection(name = "userDao")
     private UserDao userDao;
+    @Value(value = "${server.port}")
+    private int port;
+    @Injection
+    private UserInfoMapper userInfoMapper;
+
     @Override
     public User login(User user) {
         User byAccount = userDao.findPassAndIdByAccount(user.getAccount());
@@ -56,6 +63,13 @@ public class UserServiceImpl implements UserService {
     @Override
     public int findUserStatus(String account) {
         return userDao.findStatusByAccount(account);
+    }
+
+    @Override
+    public void test() {
+        System.out.println("port is----->" + this.port);
+        UserInfo userInfo = userInfoMapper.selectById("1");
+        System.out.println("userInfo---->" + userInfo);
     }
 
 

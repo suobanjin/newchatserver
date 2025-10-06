@@ -65,4 +65,13 @@ public interface FriendDao {
     * @return java.util.List<java.lang.Integer>
     **/
     List<Integer> findFriendIdsByUserId(int userId);
+
+    /**
+    * @Author 索半斤
+    * @Description 更新用户点赞数
+    * @Date 17:22 2022/11/26
+    * @Param [friendId]
+    * @return int
+    **/
+    int updateLikeNumById(int friendId,int num);
 }

@@ -9,5 +9,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface Bean {
-    public String value() default "";
+    String value() default "";
+    boolean lazy() default false;
 }

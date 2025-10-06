@@ -17,7 +17,7 @@ import zzuli.zw.main.model.ResponseParameter;
  * @Datetime 2022年 11月 09日 22:50
  * @Version: 1.0
  */
-@Bean("heartListenerRequest")
+//@Bean("heartListenerRequest")
 @Request
 public class HeartListenerRequest {
 

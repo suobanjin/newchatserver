@@ -42,7 +42,7 @@ public class FriendGroupDaoImpl implements FriendGroupDao {
                 "WHERE fg.user_id = ?";
         List<Map<String, Object>> maps;
         try {
-            maps = queryRunner.query(sql, new MapListHandler(), 1);
+            maps = queryRunner.query(sql, new MapListHandler(), userId);
         }catch (Exception e){
             e.printStackTrace();
             return null;
@@ -54,6 +54,7 @@ public class FriendGroupDaoImpl implements FriendGroupDao {
             friendGroup.setGroupingType((Integer) objectMap.get("group_type"));
             friendGroup.setId((Integer) objectMap.get("group_id"));
             if (groups.size() == 0 || !groups.contains(friendGroup))groups.add(friendGroup);
+            if (objectMap.get("friend_id") == null)continue;
             Friend friend = new Friend();
             friend.setId((Integer) objectMap.get("friend_id"));
             friend.setAccount((String) objectMap.get("account"));

@@ -34,7 +34,7 @@ public class PhotoWallDaoImpl implements PhotoWallDao {
 
     @Override
     public PhotoWall findPhotoWallByUserId(int userId) {
-        String sql = "select photo_path from photo_wall where userId = ?";
+        String sql = "select photo_path from photo_wall where user_id = ?";
         try {
             List<Map<String, Object>> query = queryRunner.query(sql, new MapListHandler(), userId);
             if (query == null || query.size() == 0)return null;

@@ -3,6 +3,7 @@ package zzuli.zw.main.model;
 import cn.hutool.core.util.RandomUtil;
 import zzuli.zw.config.Router;
 import zzuli.zw.main.broadcast.Broadcast;
+import zzuli.zw.main.connection.NioConnection;
 import zzuli.zw.main.connection.RequestServerThread;
 import zzuli.zw.main.factory.HeartBeatContainer;
 import zzuli.zw.main.factory.SocketContainer;
@@ -13,6 +14,7 @@ import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.SocketUtils;
 import zzuli.zw.pojo.User;
+import zzuli.zw.pojo.model.ResponseModel;
 import zzuli.zw.pojo.model.StatusType;
 import zzuli.zw.request.HeartListenerRequest;
 
@@ -93,6 +95,17 @@ public class RequestParameter implements Serializable {
 
     public void setServerContext(ServerContext serverContext) {
         this.serverContext = serverContext;
+    }
+    
+    // NIO连接支持
+    private NioConnection nioConnection;
+    
+    public NioConnection getNioConnection() {
+        return nioConnection;
+    }
+    
+    public void setNioConnection(NioConnection nioConnection) {
+        this.nioConnection = nioConnection;
     }
 
     public Broadcast getBroadcast() {
@@ -302,9 +315,13 @@ public class RequestParameter implements Serializable {
                     ResponseMessage responseMessage = new ResponseMessage();
                     responseMessage.setRequest(Router.UPDATE_FRIEND_STATUS);
                     User user = new User();
+                    user.setAccount(((User)attribute).getAccount());
                     user.setId(((User) attribute).getId());
                     user.setStatus(StatusType.OFFLINE);
-                    responseMessage.setContentObject(user);
+                    ResponseModel<User> responseModel = new ResponseModel<>();
+                    responseModel.setData(user);
+                    responseModel.setInfo(1);
+                    responseMessage.setContentObject(responseModel);
                     this.getBroadcast().closeBroadcast(responseMessage,((User) attribute).getId());
                     return true;
                 }
@@ -355,7 +372,7 @@ public class RequestParameter implements Serializable {
         }
         return false;
     }
-    public void startHeartListener(int userId,
+    public void startHeartListener(User user,
                                    ResponseParameter response){
         if (this.heartListenerThread != null)throw new RuntimeException("已经开启心跳检测......");
         this.heartListenerThread = new Thread(() -> {
@@ -366,27 +383,21 @@ public class RequestParameter implements Serializable {
                     ResponseMessage commonResponseMessage = new ResponseMessage();
                     commonResponseMessage.setRequest(Router.UPDATE_FRIEND_STATUS);
                     commonResponseMessage.setCode(ResponseCode.SUCCESS);
-                    commonResponseMessage.setFrom(userId);
+                    commonResponseMessage.setFrom(user.getId());
                     commonResponseMessage.setKeepAlive(true);
                     commonResponseMessage.setSendTime(new Date().getTime());
-                    commonResponseMessage.setContentLength(0);
-                    this.broadcast().closeBroadcast(commonResponseMessage,userId);
-                    this.closeConnection(userId);
+                    ResponseModel<User> responseModel = new ResponseModel<>();
+                    User responseUser = new User();
+                    responseUser.setId(user.getId());
+                    responseUser.setAccount(user.getAccount());
+                    responseUser.setStatus(StatusType.OFFLINE);
+                    responseModel.setData(responseUser);
+                    responseModel.setInfo(1);
+                    commonResponseMessage.setContentObject(responseModel);
+                    this.broadcast().closeBroadcast(commonResponseMessage,user.getId());
+                    this.closeConnection(user.getId());
                     break;
-                }/*else {
-                    try {
-                        ResponseMessage responseMessage = new ResponseMessage();
-                        responseMessage.setRequest(Router.HEART_LISTENER);
-                        responseMessage.setCode(ResponseCode.SUCCESS);
-                        responseMessage.setSendTime(new Date().getTime());
-                        responseMessage.setSessionId(this.getSession().getId());
-                        responseMessage.setContentLength(0);
-                        responseMessage.setKeepAlive(true);
-                        response.write(responseMessage);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }*/
+                }
             }
         });
         this.heartListenerThread.start();

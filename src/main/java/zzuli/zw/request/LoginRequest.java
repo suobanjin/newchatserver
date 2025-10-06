@@ -8,9 +8,12 @@ import zzuli.zw.main.interfaces.Session;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.model.ResponseParameter;
+import zzuli.zw.pojo.PhotoWall;
 import zzuli.zw.pojo.User;
+import zzuli.zw.pojo.model.ResponseModel;
 import zzuli.zw.pojo.model.StatusType;
 import zzuli.zw.service.interfaces.IndexService;
+import zzuli.zw.service.interfaces.PhotoWallService;
 import zzuli.zw.service.interfaces.UserService;
 import zzuli.zw.utils.RegexUtils;
 
@@ -24,14 +27,17 @@ import java.util.Date;
  * @className LoginRequest
  */
 @Request
-@Bean("loginRequest")
+//@Bean("loginRequest")
 public class LoginRequest {
     @Injection(name = "userService")
     private UserService userService;
-    @Injection(name = "indexService")
+    @Injection
+    @Qualifier("indexService")
     private IndexService indexService;
-    @Injection(name = "userBroadcast")
+    @Injection
     private UserBroadcast broadcast;
+    @Injection(name = "photoWallService")
+    private PhotoWallService photoWallService;
 
     @RequestMapping(request = Router.FIND_USER_STATUS)
     public void checkStatus(@ParameterName("user") User user,
@@ -98,10 +104,16 @@ public class LoginRequest {
                 User responseUser = new User();
                 responseUser.setAccount(isLogin.getAccount());
                 responseUser.setId(isLogin.getId());
-                broadcastResponse.setContentObject(responseUser);
-                broadcast.broadcast(responseMessage, isLogin.getId());
+                responseUser.setStatus(StatusType.ONLINE);
+                ResponseModel<User> responseModel = new ResponseModel<>();
+                responseModel.setData(responseUser);
+                responseModel.setInfo(0);
+                broadcastResponse.setContentObject(responseModel);
+                broadcastResponse.setCode(ResponseCode.SUCCESS);
+                broadcast.broadcast(broadcastResponse, isLogin.getId());
+                System.out.println(broadcast);
                 //登录成功之后开启心跳检测，保证客户端和服务器端的通信状态
-                request.startHeartListener(isLogin.getId(), response);
+                request.startHeartListener(isLogin, response);
             } else {
                 //用户信息校验失败，返回登录失败信息，并将socket关闭
                 responseMessage.setRequest(request.getRequest());

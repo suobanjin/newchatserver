@@ -13,14 +13,14 @@ import java.util.List;
 public class PhotoWall implements Serializable {
     private int id;
     private int userId;
-    private List<String> filePaths;
+    private List<String> photoPaths ;
 
     @Override
     public String toString() {
         return "PhotoWall{" +
                 "id=" + id +
                 ", userId=" + userId +
-                ", filePath='" + filePaths + '\'' +
+                ", filePath='" + photoPaths + '\'' +
                 '}';
     }
 
@@ -40,11 +40,11 @@ public class PhotoWall implements Serializable {
         this.userId = userId;
     }
 
-    public List<String> getFilePaths() {
-        return filePaths;
+    public List<String> getPhotoPaths() {
+        return photoPaths;
     }
 
     public void setFilePath(List<String> filePaths) {
-        this.filePaths = filePaths;
+        this.photoPaths = filePaths;
     }
 }

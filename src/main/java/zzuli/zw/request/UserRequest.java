@@ -32,8 +32,7 @@ import java.util.Date;
  * @Datetime 2022年 11月 15日 17:01
  * @Version: 1.0
  */
-@Request()
-@Bean("userRequest")
+@Request
 public class UserRequest {
     @Injection(name = "userService")
     private UserService userService;
@@ -55,6 +54,8 @@ public class UserRequest {
                                                      RequestParameter request,
                                                      ResponseParameter response) throws IOException {
         User userInfo = userService.findDetailUserInfo(userId);
+        PhotoWall userPhotoWall = photoWallService.findUserPhotoWall(userInfo.getId());
+        userInfo.setPhotoWall(userPhotoWall);
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setSessionId(request.getSession().getId());
         if (type == 0)responseMessage.setRequest(Router.FIND_DETAIL_USER_INFO);

@@ -1,6 +1,7 @@
 package zzuli.zw.main.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import zzuli.zw.main.connection.NioConnection;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.utils.ProtocolUtils;
@@ -57,17 +58,33 @@ public class ResponseParameter {
         if (data.getContent() != null){
             data.setContentLength(data.getContent().length());
         }
-        ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
-        String string = objectMapper.writeValueAsString(data);
-        System.out.println("send ---> " + string);
-        OutputStream outputStream = responseSocket.getOutputStream();
-        BufferedWriter bufferedWriter = new BufferedWriter(
-                new OutputStreamWriter(outputStream)
-        );
-        bufferedWriter.write(string+"\n");
-        bufferedWriter.newLine();
-        bufferedWriter.write("EOF\n");
-        bufferedWriter.flush();
+        
+        // 检查是否为NIO连接
+        if (nioConnection != null && !nioConnection.isClosed()) {
+            // 使用NIO协议发送
+            try {
+                zzuli.zw.main.protocol.BinaryFrame frame = zzuli.zw.main.protocol.BinaryCodec.encodeResponse(data);
+                nioConnection.sendFrame(frame);
+                System.out.println("NIO send ---> " + data.getContent());
+            } catch (Exception e) {
+                throw new IOException("NIO发送失败", e);
+            }
+        } else if (responseSocket != null && !responseSocket.isClosed()) {
+            // 使用传统BIO发送
+            ObjectMapper objectMapper = ObjectMapperFactory.getInstance();
+            String string = objectMapper.writeValueAsString(data);
+            System.out.println("BIO send ---> " + string);
+            OutputStream outputStream = responseSocket.getOutputStream();
+            BufferedWriter bufferedWriter = new BufferedWriter(
+                    new OutputStreamWriter(outputStream)
+            );
+            bufferedWriter.write(string+"\n");
+            bufferedWriter.newLine();
+            bufferedWriter.write("EOF\n");
+            bufferedWriter.flush();
+        } else {
+            throw new IOException("没有可用的连接发送数据");
+        }
     }
     public Socket getResponseSocket() {
         return responseSocket;
@@ -75,6 +92,17 @@ public class ResponseParameter {
 
     public void setResponseSocket(Socket responseSocket) {
         this.responseSocket = responseSocket;
+    }
+    
+    // NIO连接支持
+    private NioConnection nioConnection;
+    
+    public NioConnection getNioConnection() {
+        return nioConnection;
+    }
+    
+    public void setNioConnection(NioConnection nioConnection) {
+        this.nioConnection = nioConnection;
     }
 
     public ResponseMessage getJsonResult() {

@@ -138,7 +138,15 @@ public class DispatcherRequest extends BaseRequest {
             }
             Object responseMessage = method.invoke(value, objects);
             if (responseMessage != null) {
-                response.write((ResponseMessage)responseMessage);
+                if (responseMessage instanceof ResponseMessage) {
+                    response.write((ResponseMessage) responseMessage);
+                }else {
+                    ResponseMessage responseMess = new ResponseMessage();
+                    responseMess.setRequest(request.getRequest());
+                    responseMess.setContentObject(responseMessage);
+                    responseMess.setCode(ResponseCode.SUCCESS);
+                    response.write(responseMess);
+                }
             }
         } catch (Exception e) {
             ResponseMessage responseMessage = new ResponseMessage();

@@ -37,7 +37,7 @@ public class RandomUtilTest {
 
     @Test
     public void test03(){
-        FriendRequest user = new FriendRequest();
+        FriendRequest user = new FriendRequest(1);
         Class<? extends FriendRequest> aClass = user.getClass();
         String name = aClass.getName();
         //System.out.println(name);

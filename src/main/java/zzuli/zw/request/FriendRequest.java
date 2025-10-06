@@ -1,6 +1,7 @@
 package zzuli.zw.request;
 
 import zzuli.zw.main.model.RequestParameter;
+import zzuli.zw.main.model.ResponseCode;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.model.protocol.ResponseMessage;
 import zzuli.zw.main.annotation.*;
@@ -16,7 +17,7 @@ import zzuli.zw.service.interfaces.UserService;
  * @className FriendRequest
  */
 @Request
-@Bean("friendRequest")
+//@Bean("friendRequest")
 public class FriendRequest {
     @Injection(name = "friendService")
     private FriendService friendService;
@@ -27,6 +28,10 @@ public class FriendRequest {
      * @Param [request,response]
      * @return void
      **/
+    @Injection
+    public FriendRequest(@Value("${server.port:1000}") int port){
+        //System.out.println("测试有参构造案例----->" + port);
+    }
     @RequestMapping(Router.UPDATE_FRIEND_INFO)
     public ResponseMessage findFriends(@ParameterName("user") User user)  {
         String username = user.getUsername();
@@ -55,7 +60,25 @@ public class FriendRequest {
                                       ResponseParameter response,
                                       @ParameterName("num")int num,
                                       @ParameterName("friendId")int friendId){
-        return null;
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setRequest(request.getRequest());
+        if (num <= 0){
+            responseMessage.setCode(ResponseCode.FAIL);
+            responseMessage.setContent("数据更新失败!");
+            return responseMessage;
+        }
+        int i = friendService.updateLike(friendId, num);
+        if (i == -1){
+            responseMessage.setCode(ResponseCode.FAIL);
+            responseMessage.setContent("数据更新失败!");
+            return responseMessage;
+        }
+        responseMessage.setCode(ResponseCode.SUCCESS);
+        responseMessage.setContent(Integer.toString(num));
+        return responseMessage;
     }
 
+    public void test(){
+        System.out.println("测试无参构造案例");
+    }
 }

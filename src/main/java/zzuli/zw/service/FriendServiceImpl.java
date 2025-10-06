@@ -22,4 +22,9 @@ public class FriendServiceImpl implements FriendService {
     public List<Integer> findFriendIds(int userId) {
         return friendDao.findFriendIdsByUserId(userId);
     }
+
+    @Override
+    public int updateLike(int friendId, int num) {
+        return friendDao.updateLikeNumById(friendId, num);
+    }
 }

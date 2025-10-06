@@ -3,6 +3,8 @@ package zzuli.zw;
 import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.junit.jupiter.api.Test;
 
+import zzuli.zw.dao.PhotoWallDao;
+import zzuli.zw.dao.daoImpl.PhotoWallDaoImpl;
 import zzuli.zw.pojo.*;
 import zzuli.zw.main.utils.TxQueryRunner;
 
@@ -134,5 +136,12 @@ public class Peop {
             System.out.println(groupGroup);
         }
         //System.out.println(groupGroupList.get(0));
+    }
+
+    @Test
+    public void test03(){
+        PhotoWallDao photoWallDao = new PhotoWallDaoImpl();
+        PhotoWall photoWallByUserId = photoWallDao.findPhotoWallByUserId(1);
+        System.out.println(photoWallByUserId);
     }
 }

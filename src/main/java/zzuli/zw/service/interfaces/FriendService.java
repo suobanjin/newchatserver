@@ -11,4 +11,12 @@ public interface FriendService {
     * @return java.util.List<java.lang.Integer>
     **/
     List<Integer> findFriendIds(int userId);
+    /**
+    * @Author 索半斤
+    * @Description 更新好友的点赞数量
+    * @Date 17:29 2022/11/26
+    * @Param [friendId, num]
+    * @return int
+    **/
+    int updateLike(int friendId,int num);
 }

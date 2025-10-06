@@ -20,5 +20,6 @@ public class CloseSocketRequest{
     @RequestMapping(Router.CLOSE_SOCKET)
     public void exit(RequestParameter request){
         request.closeConnection();
+
     }
 }
