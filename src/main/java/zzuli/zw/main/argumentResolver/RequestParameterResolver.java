@@ -1,4 +1,5 @@
 package zzuli.zw.main.argumentResolver;
+import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
@@ -12,6 +13,7 @@ import java.lang.reflect.Parameter;
  * @date 2022/1/26
  * @className RequestParameterResolver
  */
+@Bean
 public class RequestParameterResolver implements HandlerMethodArgumentResolver {
     public RequestParameterResolver() {
     }

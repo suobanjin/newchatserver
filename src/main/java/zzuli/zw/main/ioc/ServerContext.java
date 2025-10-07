@@ -3,10 +3,16 @@ package zzuli.zw.main.ioc;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.ibatis.executor.parameter.ParameterHandler;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import zzuli.zw.NewChatServerStart;
 import zzuli.zw.main.annotation.*;
+import zzuli.zw.main.factory.ArgumentResolvers;
+import zzuli.zw.main.factory.InterceptorsQueue;
+import zzuli.zw.main.factory.RequestBeanContainer;
+import zzuli.zw.main.interfaces.HandlerInterceptor;
+import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
 import zzuli.zw.main.ioc.beanPostProcessors.AopBeanPostProcessor;
 import zzuli.zw.main.ioc.beanPostProcessors.AutowiredAnnotationBeanPostProcessor;
 import zzuli.zw.main.ioc.beanPostProcessors.ValueAnnotationBeanPostProcessor;
@@ -66,51 +72,6 @@ public class ServerContext {
         refresh(configClass, classes);
     }
 
-    private void scanAndRegisterMappers(String basePackage) {
-        Set<Class<?>> classes = ClassUtil.extractPackageClass(basePackage);
-        for (Class<?> clazz : classes) {
-            if (clazz.isAnnotationPresent(Mapper.class) && clazz.isInterface()) {
-                registerMapper(clazz);
-            }
-        }
-    }
-
-
-    @SuppressWarnings("unused")
-    private void registerMappers(Class<?> configClass) {
-        // 扫描 MapperScan 或者 @Mapper 注解
-        MapperScan mapperScan = configClass.getAnnotation(MapperScan.class);
-        if (!Objects.isNull(mapperScan)) {
-            scanAndRegisterMappers(mapperScan.value());
-        }else {
-            scanAndRegisterMappers(configClass.getAnnotation(BeanScan.class).value());
-        }
-
-        // 处理单个 Mapper 注解
-        for (BeanDefinition bd : beanFactory.getBeanDefinitions().values()) {
-            Class<?> clazz = bd.getBeanClass();
-            if (clazz.isAnnotationPresent(Mapper.class) && clazz.isInterface()) {
-                registerMapper(clazz);
-            }
-        }
-    }
-
-    private void registerMapper(Class<?> mapperClass) {
-        try {
-            SqlSessionFactory sqlSessionFactory = (SqlSessionFactory) getBean(SqlSessionFactory.class);
-            sqlSessionFactory.getConfiguration().addMapper(mapperClass);
-            Object mapperProxy = sqlSessionFactory.openSession(true).getMapper(mapperClass);
-            String beanName = Introspector.decapitalize(mapperClass.getSimpleName());
-            BeanDefinition beanDefinition = new BeanDefinition(beanName, mapperClass.getName(), mapperClass, Mapper.class);
-            beanFactory.registerBeanDefinition(beanDefinition);
-            beanFactory.registerBean(beanName, mapperProxy);
-            log.info("[Mapper] Registered mapper: {}", mapperClass.getName());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to register mapper: " + mapperClass.getName(), e);
-        }
-    }
-
-
     private void registerDefaultBeanPostProcessor() {
         try {
             // 注册内置的 BeanPostProcessor
@@ -144,7 +105,6 @@ public class ServerContext {
 
     /**
      * 加载properties文件
-     *
      */
     private void loadProperties() {
         try (InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream("application.properties")) {
@@ -159,36 +119,67 @@ public class ServerContext {
         }
     }
 
+    /**
+     * 刷新容器
+     *
+     * @param primaryConfigClass
+     * @param scanned
+     */
     private void refresh(Class<?> primaryConfigClass, Set<Class<?>> scanned){
         // 首先注入BeanPostProcessor
         Set<String> processedBps = new HashSet<>();
         for (Map.Entry<String, BeanDefinition> entry : beanFactory.getBeanDefinitions().entrySet()) {
             if (BeanPostProcessor.class.isAssignableFrom(entry.getValue().getBeanClass())) {
-                BeanPostProcessor bpp = (BeanPostProcessor) beanFactory.getBean(entry.getKey());
+                Object obj =  beanFactory.getBean(entry.getKey());
+                if (Request.class.isAssignableFrom(entry.getValue().getAnnotationType())){
+                    RequestBeanContainer.addRequest(entry.getValue().getBeanName(), obj);
+                }
+                BeanPostProcessor bpp = (BeanPostProcessor) obj;
                 if (!processedBps.contains(entry.getKey())) {
                     beanFactory.registerBeanPostProcessor(bpp);
                     processedBps.add(entry.getKey());
                 }
             }
         }
-        Set<String> processedConfigurations = new HashSet<>();
-        for (BeanDefinition beanDefinition : beanFactory.getBeanDefinitions().values()) {
-            if (processedBps.contains(beanDefinition.getBeanName())) continue;
-            if (beanDefinition.getAnnotationType().isAnnotationPresent(Configuration.class)){
-                beanFactory.getBean(beanDefinition.getBeanClass());
-                processedConfigurations.add(beanDefinition.getBeanName());
-            }
-        }
+        log.info("[loading...] 成功注册BeanPostProcessors: {}", processedBps.size());
 
+//        // 创建和初始化配置类
+//        Set<String> processedConfigurations = new HashSet<>();
+//        for (BeanDefinition beanDefinition : beanFactory.getBeanDefinitions().values()) {
+//            if (processedBps.contains(beanDefinition.getBeanName())) continue;
+//            if (beanDefinition.getAnnotationType().isAnnotationPresent(Configuration.class)){
+//                beanFactory.getBean(beanDefinition.getBeanClass());
+//                processedConfigurations.add(beanDefinition.getBeanName());
+//            }
+//        }
+
+        // 处理Mapper
         processMapperScan(primaryConfigClass, scanned);
 
+        // 创建普通Bean
         for (BeanDefinition beanDefinition : beanFactory.getBeanDefinitions().values()) {
             if (processedBps.contains(beanDefinition.getBeanName())) continue;
-            if (processedConfigurations.contains(beanDefinition.getBeanName()))continue;
-            beanFactory.getBean(beanDefinition.getBeanClass());
+            //if (processedConfigurations.contains(beanDefinition.getBeanName()))continue;
+            Object bean = beanFactory.getBean(beanDefinition.getBeanClass());
+            if (Request.class.isAssignableFrom(beanDefinition.getAnnotationType())){
+                RequestBeanContainer.addRequest(beanDefinition.getBeanName(), bean);
+                continue;
+            }
+            if (bean instanceof HandlerMethodArgumentResolver){
+                ArgumentResolvers.addResolver((HandlerMethodArgumentResolver) bean);
+                continue;
+            }
+            if (bean instanceof HandlerInterceptor){
+                InterceptorsQueue.getInstance().add((HandlerInterceptor) bean);
+            }
         }
+        //log.info("[loading...] 创建普通Bean: {}", beanFactory.getBeanDefinitions().size() - processedBps.size() - processedConfigurations.size());
+        log.info("[loading...] 容器初始化完成");
     }
 
+    /**
+     * 刷新容器
+     */
     @SuppressWarnings("unused")
     private void refresh() {
         // 首先注入BeanPostProcessor
@@ -211,8 +202,6 @@ public class ServerContext {
             processedConfigurations.add(beanDefinition.getBeanName());
         }
 
-        //processMapperScan();
-
         for (BeanDefinition beanDefinition : beanFactory.getBeanDefinitions().values()) {
             if (processedBps.contains(beanDefinition.getBeanName())) continue;
             if (processedConfigurations.contains(beanDefinition.getBeanName()))continue;
@@ -225,6 +214,11 @@ public class ServerContext {
         return beanFactory;
     }
 
+    /**
+     * 判断类是否是 Bean 的候选者
+     * @param clazz
+     * @return
+     */
     private boolean isBeanCandidate(Class<?> clazz) {
         for (Class<? extends Annotation> annotationClass : BEAN_ANNOTATIONS) {
             if (clazz.isAnnotationPresent(annotationClass)) {
@@ -236,6 +230,8 @@ public class ServerContext {
 
     /**
      * 从 class 上解析 Bean 信息
+     * @param clazz
+     * @return
      */
     private BeanDefinition resolveBeanDefinition(Class<?> clazz) {
         for (Class<? extends Annotation> annotationClass : BEAN_ANNOTATIONS_CONFIGURATION) {
@@ -244,6 +240,7 @@ public class ServerContext {
 
                 // 尝试从注解属性中解析 BeanName
                 String beanName = tryResolveBeanName(annotation);
+                // 如果未指定 BeanName，则使用类名
                 if (StringUtils.isEmpty(beanName)) {
                     beanName = Introspector.decapitalize(clazz.getSimpleName());
                 }
@@ -261,6 +258,7 @@ public class ServerContext {
         // 按优先级顺序尝试属性
         String[] candidateAttributes = {"request", "value", "name", "path"};
         for (String attr : candidateAttributes) {
+            // 根据method.invoke获取对应的值
             String value = getAnnotationAttribute(annotation, attr);
             if (StringUtils.isNotEmpty(value)) {
                 return value;
@@ -283,11 +281,15 @@ public class ServerContext {
         } catch (NoSuchMethodException ignored) {
             // 注解没有这个属性，忽略即可
         } catch (Exception e) {
-            throw new RuntimeException("[loading...] Failed to read annotation attribute: " + attribute, e);
+            throw new RuntimeException("Failed to read annotation attribute: " + attribute, e);
         }
         return null;
     }
 
+    /**
+     * 单独处理配置类的逻辑
+     * @param clazz
+     */
     private void processConfigurationClasses(Class<?> clazz) {
 
         // 1. 先把配置类本身作为Bean注册
@@ -316,6 +318,11 @@ public class ServerContext {
 
     }
 
+    /**
+     * 扫描并将Bean定义为BeanDefinition，注册到BeanFactory中
+     * @param scanAnnotation
+     * @return
+     */
     public Set<Class<?>> registerBeans(BeanScan scanAnnotation) {
         // 3. 注册Bean
         String basePackage = scanAnnotation.value();
@@ -323,10 +330,12 @@ public class ServerContext {
         // 过滤掉注解类型
         classes.removeIf(Class::isAnnotation);
         for (Class<?> clazz : classes) {
+            // 如果是候选Bean，则注册为BeanDefinition
             if (isBeanCandidate(clazz)) {
                 BeanDefinition beanDefinition = resolveBeanDefinition(clazz);
                 if (Objects.isNull(beanDefinition)) continue;
                 beanFactory.registerBeanDefinition(beanDefinition);
+                // 如果是配置类，按照单独的逻辑处理
             } else if (clazz.isAnnotationPresent(Configuration.class)) {
                 processConfigurationClasses(clazz);
             }
@@ -334,17 +343,27 @@ public class ServerContext {
         return classes;
     }
 
-    // ---- Mapper registration: register Mapper interfaces into MyBatis configuration and register proxies in beanFactory ----
+    /**
+     * 单独处理Mybatis-plus的代理Mapper注册逻辑
+     * @param primaryConfigClass
+     * @param scanned
+     */
     private void processMapperScan(Class<?> primaryConfigClass, Set<Class<?>> scanned) {
-        // determine base package from @MapperScan on primary config
+        // 检测 @MapperScan 是否配置
         MapperScan mapperScan = primaryConfigClass.getAnnotation(MapperScan.class);
-        String mapperPackage = (mapperScan != null) ? mapperScan.value() : null;
+        // 获取扫描包路径
+        String mapperPackage = (!Objects.isNull(mapperScan)) ? mapperScan.value() : primaryConfigClass.getAnnotation(BeanScan.class).value();
+        // 从容器获取MybatisConfiguration
         MybatisConfiguration mybatisConfiguration = (MybatisConfiguration) getBean(MybatisConfiguration.class);
         if (Objects.isNull(mybatisConfiguration)){
-            throw new RuntimeException("[loading...] MybatisConfiguration not found");
+            throw new RuntimeException("MybatisConfiguration not found");
         }
+        // 从容器中获取SqlSessionFactory
         SqlSessionFactory sqlSessionFactory = (SqlSessionFactory) getBean(SqlSessionFactory.class);
-        // register annotated mappers under mapperPackage
+        if (Objects.isNull(sqlSessionFactory)){
+            throw new RuntimeException("SqlSessionFactory not found");
+        }
+        // 根据包路径获取Mapper类
         if (mapperPackage != null && !mapperPackage.isEmpty()) {
             Set<Class<?>> mapperClasses = ClassUtil.extractPackageClass(mapperPackage);
             for (Class<?> mapperClass : mapperClasses) {
@@ -357,7 +376,7 @@ public class ServerContext {
                 registerSingleMapper(mapperClass, sqlSessionFactory, null);
             }
         }
-        // also register any interface that has @Mapper across scanned set
+        // 扫描其他标注@Mapper的接口进行注册
         for (Class<?> c : scanned) {
             if (c.isInterface() && c.isAnnotationPresent(Mapper.class)) {
                 // 使用 MyBatis-Plus 的 Configuration
@@ -369,9 +388,16 @@ public class ServerContext {
         }
     }
 
+    /**
+     * 将单个Mapper注册到BeanFactory
+     * @param mapperClass
+     * @param sqlSessionFactory
+     * @param template
+     * @param <T>
+     */
     private <T> void registerSingleMapper(Class<T> mapperClass, SqlSessionFactory sqlSessionFactory, MybatisSessionTemplate template) {
         try {
-            // 2) create proxy to delegate to SqlSession per call (use template if available)
+            // 创建代理对象，可以通过自定义模板或者默认的SqlSessionFactory
             Object proxy;
             if (template != null) {
                 proxy = template.getMapperProxy(mapperClass);
@@ -380,6 +406,7 @@ public class ServerContext {
             } else {
                 throw new RuntimeException("No SqlSessionFactory or MybatisSessionTemplate available for registering mapper: " + mapperClass);
             }
+            // 将代理对象注册到BeanFactory
             String beanName = Introspector.decapitalize(mapperClass.getSimpleName());
             beanFactory.registerBean(beanName, proxy);
             BeanDefinition beanDefinition = new BeanDefinition(beanName, mapperClass.getName(), mapperClass, Mapper.class);
@@ -389,6 +416,13 @@ public class ServerContext {
         }
     }
 
+    /**
+     * 创建Mapper代理
+     * @param mapperClass
+     * @param sqlSessionFactory
+     * @return
+     * @param <T>
+     */
     @SuppressWarnings("unchecked")
     private <T> T createSessionBasedMapperProxy(Class<T> mapperClass, SqlSessionFactory sqlSessionFactory) {
         return (T) Proxy.newProxyInstance(mapperClass.getClassLoader(), new Class[]{mapperClass},

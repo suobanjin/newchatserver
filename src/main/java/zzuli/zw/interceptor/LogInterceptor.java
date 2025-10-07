@@ -2,6 +2,7 @@ package zzuli.zw.interceptor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.annotation.Interceptor;
@@ -14,6 +15,7 @@ import zzuli.zw.main.interfaces.HandlerInterceptor;
  * @className LogInterceptor
  */
 @Interceptor(order = 0)
+@Bean
 public class LogInterceptor implements HandlerInterceptor {
     private Logger logger = LoggerFactory.getLogger(LogInterceptor.class);
     @Override

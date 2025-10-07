@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class ConfigUtils {
     private static Properties config;
-    private static final String CONFIG_NAME = "config.properties";
+    private static final String CONFIG_NAME = "application.properties";
     public synchronized static Properties initConfig() {
         if (null == config) {
             synchronized (ConfigUtils.class) {

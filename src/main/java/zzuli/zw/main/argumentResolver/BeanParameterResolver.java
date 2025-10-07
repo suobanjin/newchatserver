@@ -1,6 +1,7 @@
 package zzuli.zw.main.argumentResolver;
 
 import cn.hutool.core.bean.BeanUtil;
+import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.annotation.ParameterName;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseParameter;
@@ -15,6 +16,7 @@ import java.util.Map;
  * @date 2022/1/26
  * @className BeanParameterResolver
  */
+@Bean
 public class BeanParameterResolver implements HandlerMethodArgumentResolver {
     public BeanParameterResolver() {
     }

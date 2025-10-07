@@ -1,5 +1,6 @@
 package zzuli.zw.main.argumentResolver;
 
+import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.annotation.ParameterName;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseParameter;
@@ -14,6 +15,7 @@ import java.util.Map;
  * @date 2022/1/26
  * @className IntegerParameterResolver
  */
+@Bean
 public class SimpleParameterResolver implements HandlerMethodArgumentResolver {
     public SimpleParameterResolver() {
     }

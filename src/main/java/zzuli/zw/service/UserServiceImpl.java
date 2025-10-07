@@ -1,13 +1,11 @@
 package zzuli.zw.service;
 
 import com.baomidou.mybatisplus.extension.conditions.query.QueryChainWrapper;
+import zzuli.zw.config.redis.StringRedisTemplate;
 import zzuli.zw.dao.FriendMapper;
 import zzuli.zw.dao.UserDao;
 import zzuli.zw.dao.UserInfoMapper;
-import zzuli.zw.main.annotation.Bean;
-import zzuli.zw.main.annotation.Injection;
-import zzuli.zw.main.annotation.Transaction;
-import zzuli.zw.main.annotation.Value;
+import zzuli.zw.main.annotation.*;
 import zzuli.zw.pojo.User;
 import zzuli.zw.pojo.UserInfo;
 import zzuli.zw.service.interfaces.UserService;
@@ -19,7 +17,7 @@ import zzuli.zw.service.interfaces.UserService;
  * @Datetime 2022年 11月 15日 16:39
  * @Version: 1.0
  */
-@Bean("userService")
+@Service("userService")
 @Transaction
 public class UserServiceImpl implements UserService {
     @Injection(name = "userDao")
@@ -30,6 +28,9 @@ public class UserServiceImpl implements UserService {
     private UserInfoMapper userInfoMapper;
     @Injection
     private FriendMapper friendMapper;
+
+    @Injection
+    private StringRedisTemplate redisTemplate;
 
     @Override
     public User login(User user) {
@@ -78,6 +79,8 @@ public class UserServiceImpl implements UserService {
 
         UserInfo userInfo1 = friendMapper.selectById("1234567");
         System.out.println("userInfo1 -----> " + userInfo1);
+        redisTemplate.set("1","2");
+        System.out.println(redisTemplate.get("1"));
     }
 
 

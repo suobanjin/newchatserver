@@ -1,6 +1,7 @@
 package zzuli.zw.interceptor;
 
 import zzuli.zw.config.Router;
+import zzuli.zw.main.annotation.Bean;
 import zzuli.zw.main.model.ResponseCode;
 import zzuli.zw.main.annotation.Interceptor;
 import zzuli.zw.main.model.RequestParameter;
@@ -15,6 +16,7 @@ import zzuli.zw.main.interfaces.Session;
  * @Date 2022/1/28 13:30
  */
 @Interceptor(order = 1)
+@Bean
 public class LoginInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(RequestParameter request, ResponseParameter response, Object handler) throws Exception {

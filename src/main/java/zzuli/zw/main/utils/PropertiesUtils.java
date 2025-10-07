@@ -30,15 +30,19 @@ public class PropertiesUtils {
             throw new RuntimeException("不支持的表达式类型");
         }
         String key = resolveKey(rawVal);
-        if (StringUtils.isEmpty(key) || StringUtils.isEmpty(properties.getProperty(key))){
+        if (StringUtils.isEmpty(key)){
             String defaultValue = resolveDefaultValue(rawVal);
             if (StringUtils.isNotEmpty(defaultValue))return defaultValue;
             throw new RuntimeException("不支持的表达式类型");
+        }
+        if(StringUtils.isEmpty(properties.getProperty(key))){
+            return null;
         }
         return properties.getProperty(key);
     }
 
     public static Object convertValue(Class<?> targetType, String value){
+        if (StringUtils.isEmpty(value)) return null;
         if (targetType == int.class || targetType == Integer.class) {
             return Integer.parseInt(value);
         }

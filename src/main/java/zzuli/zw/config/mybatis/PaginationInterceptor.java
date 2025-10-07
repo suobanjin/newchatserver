@@ -1,4 +1,4 @@
-package zzuli.zw.config;
+package zzuli.zw.config.mybatis;
 
 import org.apache.ibatis.executor.statement.StatementHandler;
 import org.apache.ibatis.plugin.*;

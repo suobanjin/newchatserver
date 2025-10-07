@@ -46,9 +46,9 @@ public class ServerThreadStart {
         try {
             this.clazz = clazz;
             initServerContext();
-            initRequestBean();
-            initInterceptorsBean();
-            initArgumentResolvers();
+//            initRequestBean();
+//            initInterceptorsBean();
+//            initArgumentResolvers();
             String configAttribute = ConfigUtils.getConfigAttribute(SERVER_PORT);
             if (configAttribute == null) {
                 ss = new ServerSocket(DEFAULT_PORT);
@@ -63,7 +63,7 @@ public class ServerThreadStart {
                 RequestServerThread requestServerThread = new RequestServerThread(socket,serverContext);
                 ThreadUtil.execute(requestServerThread);
             }
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             try {
                 ss.close();
