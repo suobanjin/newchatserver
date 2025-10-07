@@ -1,5 +1,7 @@
 package zzuli.zw.service;
 
+import com.baomidou.mybatisplus.extension.conditions.query.QueryChainWrapper;
+import zzuli.zw.dao.FriendMapper;
 import zzuli.zw.dao.UserDao;
 import zzuli.zw.dao.UserInfoMapper;
 import zzuli.zw.main.annotation.Bean;
@@ -26,6 +28,8 @@ public class UserServiceImpl implements UserService {
     private int port;
     @Injection
     private UserInfoMapper userInfoMapper;
+    @Injection
+    private FriendMapper friendMapper;
 
     @Override
     public User login(User user) {
@@ -68,8 +72,12 @@ public class UserServiceImpl implements UserService {
     @Override
     public void test() {
         System.out.println("port is----->" + this.port);
-        UserInfo userInfo = userInfoMapper.selectById("1");
+        UserInfo userInfo = userInfoMapper.selectById("123456");
+        System.out.println(userInfo);
         System.out.println("userInfo---->" + userInfo);
+
+        UserInfo userInfo1 = friendMapper.selectById("1234567");
+        System.out.println("userInfo1 -----> " + userInfo1);
     }
 
 

@@ -25,12 +25,12 @@ public class BeanFactory implements ObjectFactory {
 
     private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>();      // 一级缓存
     private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap<>(); // 二级缓存
-    private final Map<String, ObjectFactory> singletonFactories = new ConcurrentHashMap<>(); // 三级缓存
+    private final Map<String, SingletonFactory> singletonFactories = new ConcurrentHashMap<>(); // 三级缓存
     private final Map<String, BeanDefinition> beanDefinitions = new HashMap<>();
     private final List<BeanPostProcessor> beanPostProcessors = new CopyOnWriteArrayList<>(); // BeanPostProcessor
     private final Map<Class<?>, String> classToBeanNameMap = new ConcurrentHashMap<>();    // beanClass -> Class
     private final Properties properties = new Properties();
-    interface ObjectFactory {
+    interface SingletonFactory {
         Object getObject();
     }
 
@@ -50,7 +50,13 @@ public class BeanFactory implements ObjectFactory {
 
     @Override
     public void release() {
-        if (singletonObjects.size() != 0)singletonObjects.clear();
+        if (!singletonObjects.isEmpty()) singletonObjects.clear();
+        if (!earlySingletonObjects.isEmpty()) earlySingletonObjects.clear();
+        if (!singletonFactories.isEmpty()) singletonFactories.clear();
+        if (!beanDefinitions.isEmpty()) beanDefinitions.clear();
+        if (!classToBeanNameMap.isEmpty()) classToBeanNameMap.clear();
+        if (!beanPostProcessors.isEmpty()) beanPostProcessors.clear();
+        if (!properties.isEmpty()) properties.clear();
     }
 
 
@@ -67,6 +73,15 @@ public class BeanFactory implements ObjectFactory {
 
     public void registerBean(String beanName, Object  bean) {
         this.singletonObjects.put(beanName, bean);
+        Class<?> beanClass = bean.getClass();
+        Class<?>[] interfaces = beanClass.getInterfaces();
+        if (interfaces != null && interfaces.length > 0) {
+            for (Class<?> itf : interfaces) {
+                classToBeanNameMap.putIfAbsent(itf, beanName);
+            }
+        } else {
+            classToBeanNameMap.putIfAbsent(beanClass, beanName);
+        }
     }
 
     @Override
@@ -230,6 +245,7 @@ public class BeanFactory implements ObjectFactory {
 
         // ========= 3. 默认构造 =========
         Constructor<?> defaultCtr = bd.getBeanClass().getDeclaredConstructor();
+        if (!defaultCtr.isAccessible()) defaultCtr.setAccessible(true);
         return defaultCtr.newInstance();
     }
 
