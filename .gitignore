@@ -1,0 +1,30 @@
+# 忽略 Java 编译产生的 class 文件
+*.class
+
+# 忽略 Maven / Gradle 构建目录
+target/
+build/
+out/
+
+# 忽略 IntelliJ IDEA 配置文件
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# 忽略 Eclipse 配置文件
+.classpath
+.project
+.settings/
+
+# 忽略日志文件
+logs/
+*.log
+
+# 忽略本地配置文件（数据库密码等）
+*.properties
+!application.properties   # 如果你想保留某个配置文件，可以用 ! 取反
+
+# 忽略 OS 生成的文件
+.DS_Store
+Thumbs.db
