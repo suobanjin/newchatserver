@@ -71,7 +71,7 @@ public class LoginRequest {
             responseMessage.setRequest(Router.LOGIN);
             responseMessage.setCode(ResponseCode.FAIL);
             response.write(responseMessage);
-            request.closeConnection();
+            request.close();
         } else {
             int status = userService.findUserStatus(user.getAccount());
             if (status != StatusType.OFFLINE) {
@@ -111,7 +111,7 @@ public class LoginRequest {
                 broadcast.broadcast(broadcastResponse, isLogin.getId());
                 System.out.println(broadcast);
                 //登录成功之后开启心跳检测，保证客户端和服务器端的通信状态
-                request.startHeartListener(isLogin, response);
+                //request.startHeartListener(isLogin, response);
             } else {
                 //用户信息校验失败，返回登录失败信息，并将socket关闭
                 responseMessage.setRequest(request.getRequest());
@@ -119,7 +119,7 @@ public class LoginRequest {
                 responseMessage.setContent("用户名或者密码错误,请稍后重试...");
                 responseMessage.setCode(ResponseCode.FAIL);
                 response.write(responseMessage);
-                request.closeSocket();
+                request.close();
             }
         }
     }

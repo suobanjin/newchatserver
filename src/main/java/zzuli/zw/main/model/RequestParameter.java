@@ -257,11 +257,15 @@ public class RequestParameter implements Serializable {
     public Session getSession() {
         if (this.session == null){
             String sessionId = SecureTokenUtil.generateSessionId();
-            IMSessionManager.createUserSession(sessionId, null, null);
+            IMSessionManager.createUserSession(sessionId, null, nioConnection.getDeviceId(),nioConnection);
             getResult().setSessionId(sessionId);
             return this.session;
         }
         return this.session;
+    }
+
+    public void close(){
+        this.nioConnection.close();
     }
 
     /**
