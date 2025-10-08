@@ -4,14 +4,10 @@ import cn.hutool.core.thread.ThreadUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zzuli.zw.main.annotation.BeanScan;
-import zzuli.zw.main.annotation.Request;
-import zzuli.zw.main.factory.InterceptorsQueue;
 import zzuli.zw.main.interfaces.HandlerInterceptor;
 import zzuli.zw.main.factory.ArgumentResolvers;
-import zzuli.zw.main.factory.RequestBeanContainer;
 import zzuli.zw.main.factory.SocketContainer;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
-import zzuli.zw.main.ioc.BeanFactory;
 import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.utils.ClassUtil;
 import zzuli.zw.main.utils.ConfigUtils;
@@ -29,7 +25,7 @@ import java.util.concurrent.ArrayBlockingQueue;
  */
 public class ServerThreadStart {
     private static final int DEFAULT_PORT = 2077;
-    private static final String SERVER_PORT = "serverPort";
+    private static final String SERVER_PORT = "server.port";
     private static final Logger logger = LoggerFactory.getLogger(ServerThreadStart.class);
     private Class<?> clazz;
     private ServerContext serverContext;
@@ -87,30 +83,30 @@ public class ServerThreadStart {
         logger.info("serverContext config completed");
     }
 
-    private void initRequestBean(){
-        BeanFactory beanFactory = serverContext.getBeanFactory();
-        for (Object bean : beanFactory.getBeans()) {
-            Request annotation = bean.getClass().getAnnotation(Request.class);
-            if (annotation != null){
-                String value = annotation.value();
-                if (value == null || value.equals("")) {
-                    String request = annotation.request();
-                    if (request == null || request.equals("")) {
-                        String name = bean.getClass().getName();
-                        name = name.substring(name.lastIndexOf(".") + 1);
-                        name = name.toLowerCase();
-                        RequestBeanContainer.addRequest(name, bean);
-                    } else {
-                        RequestBeanContainer.addRequest(request, bean);
-                    }
-                }else{
-                    RequestBeanContainer.addRequest(value, bean);
-                }
-            }
-        }
-        logger.info("requestBeans config completed");
-        logger.info("requestBeans count {}", RequestBeanContainer.getInstance().size());
-    }
+//    private void initRequestBean(){
+//        BeanFactory beanFactory = serverContext.getBeanFactory();
+//        for (Object bean : beanFactory.getBeans()) {
+//            Request annotation = bean.getClass().getAnnotation(Request.class);
+//            if (annotation != null){
+//                String value = annotation.value();
+//                if (value == null || value.equals("")) {
+//                    String request = annotation.request();
+//                    if (request == null || request.equals("")) {
+//                        String name = bean.getClass().getName();
+//                        name = name.substring(name.lastIndexOf(".") + 1);
+//                        name = name.toLowerCase();
+//                        RequestBeanContainer.addRequest(name, bean);
+//                    } else {
+//                        RequestBeanContainer.addRequest(request, bean);
+//                    }
+//                }else{
+//                    RequestBeanContainer.addRequest(value, bean);
+//                }
+//            }
+//        }
+//        logger.info("requestBeans config completed");
+//        logger.info("requestBeans count {}", RequestBeanContainer.getInstance().size());
+//    }
 
     /**
      * @Author 索半斤
@@ -119,13 +115,13 @@ public class ServerThreadStart {
      * @Param []
      * @return void
      **/
-    private void initInterceptorsBean(){
-        ArrayBlockingQueue<HandlerInterceptor> interceptors = InterceptorUtils.getInterceptors();
-        InterceptorsQueue.getInstance().addBeans(interceptors);
-        logger.info("interceptors config completed");
-        logger.info("interceptors count " + interceptors.size());
-
-    }
+//    private void initInterceptorsBean(){
+//        ArrayBlockingQueue<HandlerInterceptor> interceptors = InterceptorUtils.getInterceptors();
+//        InterceptorsQueue.getInstance().addBeans(interceptors);
+//        logger.info("interceptors config completed");
+//        logger.info("interceptors count " + interceptors.size());
+//
+//    }
 
     /**
      * @Author 索半斤

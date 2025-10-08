@@ -1,20 +1,22 @@
 package zzuli.zw.main.connection;
 
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import zzuli.zw.config.Router;
-import zzuli.zw.main.annotation.RequestMapping;
 import zzuli.zw.main.baseRequest.BaseRequest;
 import zzuli.zw.main.exception.ServerException;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
 import zzuli.zw.main.factory.ArgumentResolvers;
-import zzuli.zw.main.factory.RequestBeanContainer;
-import zzuli.zw.main.model.RequestParameter;
-import zzuli.zw.main.model.ResponseCode;
+import zzuli.zw.main.model.*;
 import zzuli.zw.main.model.protocol.ResponseMessage;
-import zzuli.zw.main.model.ResponseParameter;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author 索半斤
@@ -22,64 +24,29 @@ import java.util.Map;
  * @date 2022/1/22
  * @className DispatcherRequest
  */
+@Slf4j
 public class DispatcherRequest extends BaseRequest {
     @Override
     public void doRequest(RequestParameter request, ResponseParameter response) throws Exception {
-        if (RequestBeanContainer.getInstance().size() == 0){
+        if (HandlerMappingRegistry.isEmpty()){
             responseError(response);
             request.closeSocket();
             throw new ServerException("RequestBeans don`t init...");
         }
         String url = request.getUrl();
-        if (url == null || url.length() == 0){
-            int requestMapping = request.getRequest();
-            boolean isEnd = false;
-            for (Map.Entry<String, Object> entry : RequestBeanContainer.getInstance().entrySet()) {
-                Method[] methods = entry.getValue().getClass().getMethods();
-                for (Method method : methods) {
-                    if (method.getAnnotation(RequestMapping.class) == null)continue;
-                    if (method.getAnnotation(RequestMapping.class).value() == requestMapping) {
-                        processParameters(method,request,response,entry.getValue());
-                        isEnd = true;
-                    }else if (method.getAnnotation(RequestMapping.class).request() == requestMapping){
-                        processParameters(method,request,response,entry.getValue());
-                        isEnd = true;
-                    }
-                }
-            }
-            if (!isEnd){
-                ResponseMessage responseMessage = new ResponseMessage();
-                responseMessage.setRequest(Router.ILLEGAL_REQUEST);
-                responseMessage.setCode(ResponseCode.REQUEST_NOT_FOUND);
-                response.write(responseMessage);
-            }
-        }else {
-            Object baseRequest = RequestBeanContainer.getRequest(url);
-            if (baseRequest != null) {
-                int requestMapping = request.getRequest();
-                boolean isEnd = false;
-                Method[] methods = baseRequest.getClass().getMethods();
-                for (Method method : methods) {
-                    if (method.getAnnotation(RequestMapping.class) == null)continue;
-                    if (method.getAnnotation(RequestMapping.class).value() == requestMapping) {
-                        processParameters(method,request,response,baseRequest);
-                        isEnd = true;
-                    }else if (method.getAnnotation(RequestMapping.class).request() == requestMapping){
-                        processParameters(method,request,response,baseRequest);
-                        isEnd = true;
-                    }
-                }
-                if (!isEnd){
-                    ResponseMessage responseMessage = new ResponseMessage();
-                    responseMessage.setRequest(Router.ILLEGAL_REQUEST);
-                    responseMessage.setCode(ResponseCode.REQUEST_NOT_FOUND);
-                    response.write(responseMessage);
-                }
-            }else{
-                responseError(response);
-            }
+        HandlerMethod handler;
+        if (!StringUtils.isEmpty(url)) {
+            handler = HandlerMappingRegistry.getHandlerByPath(url);
+        } else {
+            handler = HandlerMappingRegistry.getHandler(request.getRequest());
         }
-
+        if (Objects.isNull(handler)) {
+            log.warn("No handler found for request: url={}, code={}", url, request.getRequest());
+            responseError(response);
+            return;
+        }
+        // 执行参数绑定 + 方法调用
+        processParameters(handler.getMethod(), request, response, handler.getRequest());
     }
 
     /**
@@ -102,7 +69,7 @@ public class DispatcherRequest extends BaseRequest {
      * @Param [method, request, response, value]
      * @return void
      **/
-    private void processParameters(Method method, RequestParameter request, ResponseParameter response, Object value)  {
+    private void processParameters2(Method method, RequestParameter request, ResponseParameter response, Object value)  {
         try {
             int parameterCount = method.getParameterCount();
             Object[] objects = new Object[parameterCount];
@@ -158,5 +125,141 @@ public class DispatcherRequest extends BaseRequest {
             }
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 重构后的参数处理方法
+     */
+    private void processParameters(Method method, RequestParameter request, ResponseParameter response, Object beanInstance) {
+        try {
+            // 获取缓存的参数解析器信息，如果没有则初始化并缓存
+            HandlerMethodParameterInfo methodInfo = HandlerMethodCache.getInstance().get(method);
+            if (methodInfo == null) {
+                methodInfo = new HandlerMethodParameterInfo(method);
+                HandlerMethodCache.getInstance().put(method, methodInfo);
+            }
+
+            // 解析方法参数
+            Object[] args;
+            try {
+                args = methodInfo.resolveArguments(request, response);
+            } catch (Exception e) {
+                writeErrorResponse(response, request.getRequest(), null, e);
+                return;
+            }
+
+            // 调用方法
+            Object result;
+            try {
+                result = method.invoke(beanInstance, args);
+            } catch (InvocationTargetException ite) {
+                // 方法内部异常
+                writeErrorResponse(response, request.getRequest(), null, ite.getTargetException());
+                return;
+            } catch (Exception e) {
+                writeErrorResponse(response, Router.ILLEGAL_REQUEST, null, e);
+                return;
+            }
+
+            // 写入响应
+            writeResponse(response, request, result);
+
+        } catch (Exception e) {
+            writeErrorResponse(response, Router.ILLEGAL_REQUEST, null, e);
+        }
+    }
+
+    /**
+     * 单例缓存类：存储 Method -> HandlerMethodParameterInfo 映射
+     */
+    private static class HandlerMethodCache {
+
+        private static final HandlerMethodCache INSTANCE = new HandlerMethodCache();
+
+        // 缓存：Method -> 参数解析信息
+        private final Map<Method, HandlerMethodParameterInfo> cache = new ConcurrentHashMap<>();
+
+        private HandlerMethodCache() {}
+
+        public static HandlerMethodCache getInstance() {
+            return INSTANCE;
+        }
+
+        public HandlerMethodParameterInfo get(Method method) {
+            return cache.get(method);
+        }
+
+        public void put(Method method, HandlerMethodParameterInfo info) {
+            cache.put(method, info);
+        }
+    }
+
+    /**
+     * 参数解析信息类
+     */
+    private static class HandlerMethodParameterInfo {
+        private final Method method;
+        private final HandlerMethodArgumentResolver[] resolvers;
+        private final Parameter[] parameters;
+
+        public HandlerMethodParameterInfo(Method method) {
+            this.method = method;
+            this.parameters = method.getParameters();
+            this.resolvers = Arrays.stream(parameters)
+                    .map(p -> {
+                        HandlerMethodArgumentResolver resolver = ArgumentResolvers.getInstance().getArgumentResolverCache(p.getType());
+                        if (resolver != null) return resolver;
+                        for (HandlerMethodArgumentResolver r : ArgumentResolvers.getInstance()) {
+                            if (r.supportsParameter(p)) {
+                                ArgumentResolvers.getInstance().addArgumentResolverCache(p.getType(), r);
+                                return r;
+                            }
+                        }
+                        throw new IllegalArgumentException("No argument resolver for parameter type: " + p.getType());
+                    })
+                    .toArray(HandlerMethodArgumentResolver[]::new);
+        }
+
+        public Object[] resolveArguments(RequestParameter request, ResponseParameter response) throws Exception {
+            Object[] args = new Object[parameters.length];
+            for (int i = 0; i < parameters.length; i++) {
+                args[i] = resolvers[i].resolveArgument(parameters[i], request, response, request.getResult());
+            }
+            return args;
+        }
+    }
+    /**
+     * 响应写入方法
+     */
+    private void writeResponse(ResponseParameter response, RequestParameter request, Object result) {
+        ResponseMessage msg;
+        if (result instanceof ResponseMessage) {
+            msg = (ResponseMessage) result;
+        } else {
+            msg = new ResponseMessage();
+            msg.setRequest(request.getRequest());
+            msg.setContentObject(result);
+            msg.setCode(ResponseCode.SUCCESS);
+        }
+        try {
+            response.write(msg);
+        } catch (Exception e) {
+            log.error("Failed to write response", e);
+        }
+    }
+
+    /**
+     * 错误响应写入方法
+     */
+    private void writeErrorResponse(ResponseParameter response, int requestCode, ResponseCode code, Throwable t) {
+        ResponseMessage msg = new ResponseMessage();
+        msg.setRequest(requestCode);
+        msg.setCode(ResponseCode.SERVER_ERROR);
+        try {
+            response.write(msg);
+        } catch (Exception ex) {
+            log.error("Failed to write error response", ex);
+        }
+        if (t != null) log.error("Request processing error", t);
     }
 }

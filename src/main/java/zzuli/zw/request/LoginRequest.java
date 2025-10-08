@@ -3,6 +3,7 @@ package zzuli.zw.request;
 import zzuli.zw.broadcast.UserBroadcast;
 import zzuli.zw.config.Router;
 import zzuli.zw.main.annotation.*;
+import zzuli.zw.main.manager.IMSessionManager;
 import zzuli.zw.main.model.ResponseCode;
 import zzuli.zw.main.interfaces.Session;
 import zzuli.zw.main.model.RequestParameter;
@@ -45,7 +46,7 @@ public class LoginRequest {
                             ResponseParameter response) throws IOException {
         //这里先记一个bug，就是当请求找不到的时候，没有默认返回值,明天再改
         int status = userService.findUserStatus(user.getAccount());
-        if (!request.isConnection(user.getId())) {
+        if (!request.isUserOnline(user)) {
             status = StatusType.OFFLINE;
             userService.updateUserStatus(user.getId(), status);
         }
@@ -58,8 +59,6 @@ public class LoginRequest {
             response.write(responseMessage);
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            request.closeSocket();
         }
     }
 
@@ -96,8 +95,7 @@ public class LoginRequest {
                 responseMessage.setCode(ResponseCode.SUCCESS);
                 responseMessage.setContentObject(isLogin);
                 response.write(responseMessage);
-                //登录成功,保持长连接状态
-                request.keepAlive();
+
                 //向好友发送上线提醒消息
                 ResponseMessage broadcastResponse = new ResponseMessage();
                 broadcastResponse.setRequest(Router.UPDATE_FRIEND_STATUS);

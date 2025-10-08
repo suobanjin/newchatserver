@@ -36,9 +36,9 @@ public class BeanParameterResolver implements HandlerMethodArgumentResolver {
         ParameterName annotation = parameter.getAnnotation(ParameterName.class);
         String name;
         if (annotation == null){
-            name = parameter.getType().getName();
-            name = name.substring(name.lastIndexOf(".")+1);
-            name = name.substring(0,1).toLowerCase().concat(name.substring(1));
+            name = parameter.getType().getSimpleName();
+            // name = name.substring(name.lastIndexOf(".")+1);
+            // name = name.substring(0,1).toLowerCase().concat(name.substring(1));
         }else {
             name = annotation.value();
         }

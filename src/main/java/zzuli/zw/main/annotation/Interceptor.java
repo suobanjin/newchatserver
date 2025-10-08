@@ -16,4 +16,5 @@ public @interface Interceptor {
     int order() default -1;
 
     int value() default -1;
+    String[] pathPatterns() default {};
 }

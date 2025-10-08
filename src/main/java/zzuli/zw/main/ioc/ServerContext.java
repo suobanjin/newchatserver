@@ -3,14 +3,11 @@ package zzuli.zw.main.ioc;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.ibatis.executor.parameter.ParameterHandler;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 import zzuli.zw.NewChatServerStart;
 import zzuli.zw.main.annotation.*;
 import zzuli.zw.main.factory.ArgumentResolvers;
-import zzuli.zw.main.factory.InterceptorsQueue;
-import zzuli.zw.main.factory.RequestBeanContainer;
 import zzuli.zw.main.interfaces.HandlerInterceptor;
 import zzuli.zw.main.interfaces.HandlerMethodArgumentResolver;
 import zzuli.zw.main.ioc.beanPostProcessors.AopBeanPostProcessor;
@@ -18,6 +15,9 @@ import zzuli.zw.main.ioc.beanPostProcessors.AutowiredAnnotationBeanPostProcessor
 import zzuli.zw.main.ioc.beanPostProcessors.ValueAnnotationBeanPostProcessor;
 import zzuli.zw.main.ioc.interfaces.BeanPostProcessor;
 import zzuli.zw.main.ioc.mybatis.MybatisSessionTemplate;
+import zzuli.zw.main.model.HandlerMappingRegistry;
+import zzuli.zw.main.model.InterceptorChain;
+import zzuli.zw.main.model.OrderedInterceptor;
 import zzuli.zw.main.utils.ClassUtil;
 import zzuli.zw.service.interfaces.UserService;
 import java.beans.Introspector;
@@ -39,6 +39,7 @@ public class ServerContext {
 
     private final BeanFactory beanFactory = new BeanFactory();
     private final Properties properties = new Properties();
+    private InterceptorChain interceptorChain = null;
     @SuppressWarnings("unchecked")
     private static final Class<? extends Annotation>[] BEAN_ANNOTATIONS = new Class[]{
             Bean.class,
@@ -70,7 +71,11 @@ public class ServerContext {
         Set<Class<?>> classes = registerBeans(scanAnnotation);
         // 5. 刷新容器
         refresh(configClass, classes);
+        // 6. 注册拦截器
+        processInterceptors();
+
     }
+
 
     private void registerDefaultBeanPostProcessor() {
         try {
@@ -103,6 +108,31 @@ public class ServerContext {
         return null;
     }
 
+    public InterceptorChain getInterceptorChain(){
+        return this.interceptorChain;
+    }
+    private void processInterceptors() {
+        List<OrderedInterceptor> interceptors = new ArrayList<>();
+
+        for (Object bean : beanFactory.getBeans()) {
+            if (!(bean instanceof HandlerInterceptor)) continue;
+
+            Interceptor annotation = bean.getClass().getAnnotation(Interceptor.class);
+            int order = 0;
+            String[] pathPatterns = new String[0];
+            if (annotation != null) {
+                order = annotation.order();
+                pathPatterns = annotation.pathPatterns();
+            }
+
+            interceptors.add(new OrderedInterceptor((HandlerInterceptor) bean, order, pathPatterns));
+        }
+
+        // 按 order 升序排列（数字越小优先级越高）
+        interceptors.sort(Comparator.comparingInt(OrderedInterceptor::getOrder));
+        interceptorChain = new InterceptorChain(interceptors);
+        log.info("Loaded {} interceptors", interceptors.size());
+    }
     /**
      * 加载properties文件
      */
@@ -132,7 +162,7 @@ public class ServerContext {
             if (BeanPostProcessor.class.isAssignableFrom(entry.getValue().getBeanClass())) {
                 Object obj =  beanFactory.getBean(entry.getKey());
                 if (Request.class.isAssignableFrom(entry.getValue().getAnnotationType())){
-                    RequestBeanContainer.addRequest(entry.getValue().getBeanName(), obj);
+                    HandlerMappingRegistry.registerHandler(obj);
                 }
                 BeanPostProcessor bpp = (BeanPostProcessor) obj;
                 if (!processedBps.contains(entry.getKey())) {
@@ -143,7 +173,7 @@ public class ServerContext {
         }
         log.info("[loading...] 成功注册BeanPostProcessors: {}", processedBps.size());
 
-//        // 创建和初始化配置类
+//        // TODO 需要考虑是否需要提前注入配置类
 //        Set<String> processedConfigurations = new HashSet<>();
 //        for (BeanDefinition beanDefinition : beanFactory.getBeanDefinitions().values()) {
 //            if (processedBps.contains(beanDefinition.getBeanName())) continue;
@@ -162,18 +192,13 @@ public class ServerContext {
             //if (processedConfigurations.contains(beanDefinition.getBeanName()))continue;
             Object bean = beanFactory.getBean(beanDefinition.getBeanClass());
             if (Request.class.isAssignableFrom(beanDefinition.getAnnotationType())){
-                RequestBeanContainer.addRequest(beanDefinition.getBeanName(), bean);
+                HandlerMappingRegistry.registerHandler(bean);
                 continue;
             }
             if (bean instanceof HandlerMethodArgumentResolver){
                 ArgumentResolvers.addResolver((HandlerMethodArgumentResolver) bean);
-                continue;
-            }
-            if (bean instanceof HandlerInterceptor){
-                InterceptorsQueue.getInstance().add((HandlerInterceptor) bean);
             }
         }
-        //log.info("[loading...] 创建普通Bean: {}", beanFactory.getBeanDefinitions().size() - processedBps.size() - processedConfigurations.size());
         log.info("[loading...] 容器初始化完成");
     }
 

@@ -2,12 +2,12 @@ package zzuli.zw.main.connection;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.collections.CollectionUtils;
 import zzuli.zw.config.Router;
-import zzuli.zw.main.factory.InterceptorsQueue;
 import zzuli.zw.main.factory.SessionContainer;
-import zzuli.zw.main.interfaces.HandlerInterceptor;
 import zzuli.zw.main.factory.ObjectMapperFactory;
 import zzuli.zw.main.ioc.ServerContext;
+import zzuli.zw.main.model.InterceptorChain;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseCode;
 import zzuli.zw.main.model.protocol.ResponseMessage;
@@ -20,7 +20,6 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -94,41 +93,23 @@ public class RequestServerThread implements Runnable {
         RequestParameter requestParameter = initRequestParameter(result);
         if (requestParameter == null) return false;
         ResponseParameter responseParameter = initResponseParameter();
-        if (list.size() == 0) {
+        if (CollectionUtils.isEmpty(list)) {
             initNotInterceptorBeans();
         }
-        if (list.size() == 0 || !list.contains(requestParameter.getRequest())) { //配置文件中没有配置放行的请求
-            ArrayBlockingQueue<HandlerInterceptor> interceptors = InterceptorsQueue.getInstance();
-            int i = 0;
-            boolean isContinue = true;
+        if (list.size() == 0 || !list.contains(requestParameter.getRequest())) {
+            InterceptorChain chain = serverContext.getInterceptorChain();
             try {
-                if (interceptors.size() != 0) { //配置了拦截器则依次执行配置的前置拦截方法
-                    for (HandlerInterceptor interceptor : interceptors) {
-                        boolean b = interceptor.preHandle(requestParameter, responseParameter, null);
-                        i++;
-                        isContinue = b;
-                        if (!b) break;
-                    }
-                }
-                if (isContinue) {
+                if (chain.applyPreHandle(requestParameter, responseParameter, null)) {
                     dispatcherRequest.doRequest(requestParameter, responseParameter);
+                    chain.applyPostHandle(requestParameter, responseParameter, null,null);
                 }
-            } catch (IOException e) {
+                chain.triggerAfterCompletion(requestParameter, responseParameter, null, null);
+            } catch (Exception e) {
+                chain.triggerAfterCompletion(requestParameter, responseParameter, null, e);
                 e.printStackTrace();
-                if (i != 0) { // 执行后置拦截
-                    for (int j = 0; j < i; j++) {
-                        interceptors.peek().afterCompletion(requestParameter, responseParameter, null, e);
-                    }
-                }
-            } finally {
-                if (i != 0) {
-                    for (int j = 0; j < i; j++) { // 执行最终拦截
-                        interceptors.peek().postHandle(requestParameter, responseParameter, null);
-                    }
-                }
             }
         } else {
-            dispatcherRequest.doRequest(requestParameter, responseParameter); //没有配置拦截器则直接执行请求
+            dispatcherRequest.doRequest(requestParameter, responseParameter);
         }
         return true;
     }

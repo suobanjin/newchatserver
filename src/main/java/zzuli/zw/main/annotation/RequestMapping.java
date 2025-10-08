@@ -15,4 +15,5 @@ import java.lang.annotation.Target;
 public @interface RequestMapping {
     int request() default -1;
     int value() default -1;
+    String url() default "";
 }

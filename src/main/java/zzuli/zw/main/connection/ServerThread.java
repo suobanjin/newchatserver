@@ -47,7 +47,7 @@ public class ServerThread implements Runnable {
                     //boolean isLogin = loginService.login(user);
                     if (true) {
                         //登录成功将socket存入容器，id为用户id
-                        SocketContainer.addSocket(user.getId(), socket);
+                        //SocketContainer.addSocket(user.getId(), socket);
                         //登录成功后创建session并存入Session容器中，id为随机生成
                         //UserService userService = AopUtils.aop(UserServiceImpl.class);
                         //User userInfo = userService.findUserInfoById(user.getId());
