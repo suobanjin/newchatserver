@@ -38,20 +38,22 @@ public class ServerThreadStart {
      * @return
      **/
     public ServerThreadStart(Class<?> clazz) throws IOException {
+        this.clazz = clazz;
+        this.initServerContext();
+        this.initServerConnection();
+
+    }
+
+    private void initServerConnection(){
         ServerSocket ss = null;
         try {
-            this.clazz = clazz;
-            initServerContext();
-//            initRequestBean();
-//            initInterceptorsBean();
-//            initArgumentResolvers();
             String configAttribute = ConfigUtils.getConfigAttribute(SERVER_PORT);
             if (configAttribute == null) {
                 ss = new ServerSocket(DEFAULT_PORT);
-                logger.info("server is running in port ----> " + DEFAULT_PORT);
+                logger.info("server is running in port ----> {}", DEFAULT_PORT);
             }else{
                 ss = new ServerSocket(Integer.parseInt(configAttribute));
-                logger.info("server is running in port ----> " + configAttribute);
+                logger.info("server is running in port ----> {}", configAttribute);
             }
             while (!ss.isClosed()) {
                 Socket socket = ss.accept();
@@ -130,30 +132,30 @@ public class ServerThreadStart {
      * @Param []
      * @return void
      **/
-    private void initArgumentResolvers() throws InterruptedException {
-        BeanScan annotation = clazz.getAnnotation(BeanScan.class);
-        if (annotation == null){
-            logger.error("serverContext init error");
-            throw new RuntimeException();
-        }
-        String value = annotation.value();
-        if (value == null || value.equals("")){
-            logger.error("BeanScan value is null");
-            throw new RuntimeException();
-        }
-        Set<Class<?>> classes = ClassUtil.extractPackageClass(value);
-        for (Class<?> next : classes) {
-            if (next.isInterface())continue;
-            Class<?>[] interfaces = next.getInterfaces();
-            for (Class<?> anInterface : interfaces) {
-                if (anInterface == HandlerMethodArgumentResolver.class){
-                    ArgumentResolvers.addResolver(ClassUtil.newObject(next));
-                }
-            }
-        }
-        logger.info("resolver config completed");
-        logger.info("resolver count " + ArgumentResolvers.getInstance().size());
-    }
+    // private void initArgumentResolvers() throws InterruptedException {
+    //     BeanScan annotation = clazz.getAnnotation(BeanScan.class);
+    //     if (annotation == null){
+    //         logger.error("serverContext init error");
+    //         throw new RuntimeException();
+    //     }
+    //     String value = annotation.value();
+    //     if (value == null || value.equals("")){
+    //         logger.error("BeanScan value is null");
+    //         throw new RuntimeException();
+    //     }
+    //     Set<Class<?>> classes = ClassUtil.extractPackageClass(value);
+    //     for (Class<?> next : classes) {
+    //         if (next.isInterface())continue;
+    //         Class<?>[] interfaces = next.getInterfaces();
+    //         for (Class<?> anInterface : interfaces) {
+    //             if (anInterface == HandlerMethodArgumentResolver.class){
+    //                 ArgumentResolvers.addResolver(ClassUtil.newObject(next));
+    //             }
+    //         }
+    //     }
+    //     logger.info("resolver config completed");
+    //     logger.info("resolver count " + ArgumentResolvers.getInstance().size());
+    // }
 
     /*String basePacket = ConfigUtils.getConfigAttribute(REQUEST_PACKET);
         Set<Class<?>> classSet = ClassUtil.extractPackageClass(basePacket);

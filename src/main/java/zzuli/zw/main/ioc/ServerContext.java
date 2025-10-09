@@ -2,6 +2,8 @@ package zzuli.zw.main.ioc;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -189,7 +191,6 @@ public class ServerContext {
         // 创建普通Bean
         for (BeanDefinition beanDefinition : beanFactory.getBeanDefinitions().values()) {
             if (processedBps.contains(beanDefinition.getBeanName())) continue;
-            //if (processedConfigurations.contains(beanDefinition.getBeanName()))continue;
             Object bean = beanFactory.getBean(beanDefinition.getBeanClass());
             if (Request.class.isAssignableFrom(beanDefinition.getAnnotationType())){
                 HandlerMappingRegistry.registerHandler(bean);
@@ -324,20 +325,22 @@ public class ServerContext {
         // 2. 遍历其 @IOC 方法
         for (Method method : clazz.getDeclaredMethods()) {
             if (!method.isAnnotationPresent(IOC.class)) continue;
-
+            // 获取beanName
             String beanName = method.getAnnotation(IOC.class).value();
+            // 默认方法名作为beanName
             if (StringUtils.isEmpty(beanName)) {
-                beanName = method.getName(); // 默认方法名作为beanName
+                beanName = method.getName();
             }
             // 用 IOCMethodBeanDefinition 包装
             BeanDefinition bd = new IOCMethodBeanDefinition(
                     beanName,
-                    method.getReturnType().getName(),
-                    method.getReturnType(),
+                    method.getReturnType().getName(),  //返回值全限定类名
+                    method.getReturnType(), // 返回值类型
                     clazz,   // 配置类
                     method,   // @IOC方法
-                    configDef
+                    configDef // 父BeanDefinition
             );
+            // 将方法定义注册到BeanFactory中
             beanFactory.registerBeanDefinition(bd);
         }
 
@@ -349,7 +352,6 @@ public class ServerContext {
      * @return
      */
     public Set<Class<?>> registerBeans(BeanScan scanAnnotation) {
-        // 3. 注册Bean
         String basePackage = scanAnnotation.value();
         Set<Class<?>> classes = ClassUtil.extractPackageClass(basePackage);
         // 过滤掉注解类型
@@ -376,12 +378,14 @@ public class ServerContext {
     private void processMapperScan(Class<?> primaryConfigClass, Set<Class<?>> scanned) {
         // 检测 @MapperScan 是否配置
         MapperScan mapperScan = primaryConfigClass.getAnnotation(MapperScan.class);
+        // 如果未配置直接跳过
+        if (Objects.isNull(mapperScan))return;
         // 获取扫描包路径
-        String mapperPackage = (!Objects.isNull(mapperScan)) ? mapperScan.value() : primaryConfigClass.getAnnotation(BeanScan.class).value();
+        String mapperPackage = (!StringUtils.isEmpty(mapperScan.value())) ? mapperScan.value() : primaryConfigClass.getAnnotation(BeanScan.class).value();
         // 从容器获取MybatisConfiguration
         MybatisConfiguration mybatisConfiguration = (MybatisConfiguration) getBean(MybatisConfiguration.class);
         if (Objects.isNull(mybatisConfiguration)){
-            throw new RuntimeException("MybatisConfiguration not found");
+            throw new RuntimeException("获取Mybatis-plus配置失败");
         }
         // 从容器中获取SqlSessionFactory
         SqlSessionFactory sqlSessionFactory = (SqlSessionFactory) getBean(SqlSessionFactory.class);
@@ -389,8 +393,12 @@ public class ServerContext {
             throw new RuntimeException("SqlSessionFactory not found");
         }
         // 根据包路径获取Mapper类
-        if (mapperPackage != null && !mapperPackage.isEmpty()) {
+        if (StringUtils.isNotEmpty(mapperPackage)) {
             Set<Class<?>> mapperClasses = ClassUtil.extractPackageClass(mapperPackage);
+            if (CollectionUtils.isEmpty(mapperClasses)){
+                log.info("{}路径下未发现Mapper", mapperPackage);
+                return;
+            }
             for (Class<?> mapperClass : mapperClasses) {
                 if (!mapperClass.isInterface()) continue;
                 if (!mapperClass.isAnnotationPresent(Mapper.class)) continue;
@@ -398,6 +406,7 @@ public class ServerContext {
                 if (!mybatisConfiguration.hasMapper(mapperClass)) {
                     mybatisConfiguration.addMapper(mapperClass);
                 }
+                // 注册Mapper到容器中
                 registerSingleMapper(mapperClass, sqlSessionFactory, null);
             }
         }
@@ -450,6 +459,7 @@ public class ServerContext {
      */
     @SuppressWarnings("unchecked")
     private <T> T createSessionBasedMapperProxy(Class<T> mapperClass, SqlSessionFactory sqlSessionFactory) {
+        // 创建基于SqlSession的Mapper代理
         return (T) Proxy.newProxyInstance(mapperClass.getClassLoader(), new Class[]{mapperClass},
                 (proxy, method, args) -> {
                     try (SqlSession session = sqlSessionFactory.openSession(true)) {

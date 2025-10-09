@@ -28,7 +28,6 @@ import java.util.Date;
  * @className LoginRequest
  */
 @Request
-//@Bean("loginRequest")
 public class LoginRequest {
     @Injection(name = "userService")
     private UserService userService;
@@ -109,7 +108,7 @@ public class LoginRequest {
                 broadcastResponse.setContentObject(responseModel);
                 broadcastResponse.setCode(ResponseCode.SUCCESS);
                 broadcast.broadcast(broadcastResponse, isLogin.getId());
-                System.out.println(broadcast);
+                // System.out.println(broadcast);
                 //登录成功之后开启心跳检测，保证客户端和服务器端的通信状态
                 //request.startHeartListener(isLogin, response);
             } else {

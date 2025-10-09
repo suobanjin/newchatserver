@@ -38,7 +38,6 @@ public class AutowiredAnnotationBeanPostProcessor implements InstantiationAwareB
                 if (qualifier != null) {
                     depName = qualifier.value();
                 }
-
                 Object dependency;
                 if (StringUtils.isNotEmpty(depName)) {
                     // 按名字找
@@ -47,7 +46,6 @@ public class AutowiredAnnotationBeanPostProcessor implements InstantiationAwareB
                     // 按类型找
                     dependency = beanFactory.getBean(field.getType());
                 }
-
                 try {
                     field.setAccessible(true);
                     field.set(bean, dependency);

@@ -4,6 +4,13 @@ import zzuli.zw.main.annotation.Configuration;
 
 import java.lang.reflect.Method;
 
+/**
+ * @ClassName IOCMethodBeanDefinition
+ * @Description 封装了配置类中被IOC标注的对应类的定义
+ * @Author zw
+ * @Date 2025/10
+ * @Version 1.0
+ **/
 public class IOCMethodBeanDefinition extends BeanDefinition {
     private final Class<?> configClass;
     private final Method factoryMethod;

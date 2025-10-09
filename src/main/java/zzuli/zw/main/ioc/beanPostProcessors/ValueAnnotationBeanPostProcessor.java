@@ -25,10 +25,8 @@ public class ValueAnnotationBeanPostProcessor implements InstantiationAwareBeanP
         for (Field field : clazz.getDeclaredFields()) {
             if (field.isAnnotationPresent(Value.class)) {
                 String rawVal = field.getAnnotation(Value.class).value();
-
                 // 支持占位符解析 ${...}
                 String resolvedVal = PropertiesUtils.resolvePlaceholderValue(properties, rawVal);
-
                 try {
                     field.setAccessible(true);
                     Object convertedValue = PropertiesUtils.convertValue(field.getType(), resolvedVal);
@@ -41,8 +39,6 @@ public class ValueAnnotationBeanPostProcessor implements InstantiationAwareBeanP
         }
         return bean;
     }
-
-
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName, BeanFactory factory) {

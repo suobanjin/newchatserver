@@ -14,7 +14,7 @@ import java.util.Map;
 public class NioRequestAdapter {
 
     private final ServerContext serverContext;
-
+    private final DispatcherRequest dispatcherRequest = new DispatcherRequest();
     public NioRequestAdapter(ServerContext serverContext) {
         this.serverContext = serverContext;
     }
@@ -25,7 +25,6 @@ public class NioRequestAdapter {
         response.setNioConnection(connection);
 
         InterceptorChain chain = serverContext.getInterceptorChain();
-        DispatcherRequest dispatcherRequest = new DispatcherRequest();
 
         try {
             if (chain.applyPreHandle(request, response, null)) {
