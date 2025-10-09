@@ -202,6 +202,7 @@ public class IMUserSession implements Session {
         this.user = null;
         this.deviceId = null;
         this.isActive = false;
+        this.getSocketChannel().close();
     }
 
     /**

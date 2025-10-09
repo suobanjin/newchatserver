@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import zzuli.zw.main.ioc.ServerContext;
+import zzuli.zw.main.manager.IMSessionManager;
+import zzuli.zw.main.model.IMUserSession;
 
 public class MultiThreadNioServer {
 
@@ -152,7 +154,7 @@ public class MultiThreadNioServer {
         private final AtomicBoolean running = new AtomicBoolean(true);
         private final BlockingQueue<Runnable> taskQueue = new LinkedBlockingQueue<>();
         private final NioConnectionManager connectionManager = new NioConnectionManager(maxConnections / workerThreadCount);
-        private final NioProtocolHandler protocolHandler = new NioProtocolHandler();
+        private final NioProtocolHandler protocolHandler = new NioProtocolHandler(serverContext);
         private final NioRequestDispatcher requestDispatcher = new NioRequestDispatcher(serverContext);
 
         Worker(int id) throws IOException {
@@ -262,6 +264,7 @@ public class MultiThreadNioServer {
             if (conn != null) {
                 conn.close();
                 connectionManager.removeConnection(conn);
+                IMSessionManager.disconnectSession(conn.getSessionId());
                 globalConnectionCount.decrementAndGet();
             }
             key.cancel();
@@ -272,6 +275,8 @@ public class MultiThreadNioServer {
             selector.wakeup();
             taskQueue.add(() -> {
                 connectionManager.closeAllConnections();
+                // 如果服务器发生异常，清除所有Session数据（同时会关闭所有SocketChannel）
+                IMSessionManager.getAllActiveSessions().forEach(IMUserSession::clear);
             });
         }
     }

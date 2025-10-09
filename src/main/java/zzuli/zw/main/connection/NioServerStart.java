@@ -3,6 +3,8 @@ package zzuli.zw.main.connection;
 import lombok.extern.slf4j.Slf4j;
 import zzuli.zw.main.annotation.BeanScan;
 import zzuli.zw.main.ioc.ServerContext;
+import zzuli.zw.main.manager.IMSessionManager;
+import zzuli.zw.main.model.IMUserSession;
 import zzuli.zw.main.utils.ConfigUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +29,14 @@ public class NioServerStart {
     /**
      * 初始化NIO服务器
      */
-    public NioServerStart(Class<?> clazz) throws IOException {
+    public NioServerStart(Class<?> clazz)  {
         this.clazz = clazz;
         initServerContext();
-        initNioServer();
+        try {
+            initNioServer();
+        } catch (IOException e) {
+            throw new RuntimeException("服务器异常");
+        }
     }
     
     /**
@@ -51,9 +57,6 @@ public class NioServerStart {
         if (configAttribute != null) {
             port = Integer.parseInt(configAttribute);
         }
-        
-        // 创建NIO服务器
-        //this.nioServer = new NioServer(port, serverContext);
         // 使用多线程NIO服务器
         this.multiThreadNioServer = new MultiThreadNioServer(port, serverContext);
         log.info("NIO服务器初始化完成，端口: {}", port);
@@ -62,7 +65,7 @@ public class NioServerStart {
     /**
      * 启动NIO服务器
      */
-    public void start() throws IOException {
+    public void start() {
         if (!Objects.isNull(multiThreadNioServer)) {
             multiThreadNioServer.start();
         } else {

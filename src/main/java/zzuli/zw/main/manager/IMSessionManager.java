@@ -1,6 +1,7 @@
 package zzuli.zw.main.manager;
 
 import zzuli.zw.main.connection.NioConnection;
+import zzuli.zw.main.connection.NioConnectionManager;
 import zzuli.zw.main.factory.SessionContainer;
 import zzuli.zw.main.factory.SocketContainer;
 import zzuli.zw.main.factory.ThreadContainer;
@@ -146,17 +147,8 @@ public class IMSessionManager {
         if (session != null) {
             // 标记Session为非活跃
             session.setActive(false);
-            
-            // 移除Socket连接
-            Integer userId = session.getUserId();
-            if (userId != null) {
-                //SocketContainer.remove(userId);
-                //ThreadContainer.removeThread(userId);
-            }
-            
             // 移除Session
             SessionContainer.remove(sessionId);
-            
             logger.info("断开Session: {} 用户: {}", sessionId, session.getUserAccount());
         }
     }
