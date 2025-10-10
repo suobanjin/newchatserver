@@ -8,7 +8,7 @@ import java.io.IOException;
 @BeanScan("zzuli.zw")
 @MapperScan("zzuli.zw.dao")
 public class NewChatServerStart {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args)  {
         System.out.print("\n\n  _____                            _____                   _                 \n" +
                 " / ____|                          |  __ \\                 (_)                \n" +
                 "| (___   ___ _ ____   _____ _ __  | |__) |   _ _ __  _ __  _ _ __ ___   __ _ \n" +
