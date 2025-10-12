@@ -1,34 +1,30 @@
 package zzuli.zw.main.connection;
 
-import zzuli.zw.main.factory.ObjectMapperFactory;
-import zzuli.zw.main.factory.SessionContainer;
+import lombok.extern.slf4j.Slf4j;
 import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.model.InterceptorChain;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseParameter;
-import zzuli.zw.main.model.protocol.ResponseMessage;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
 
+@Slf4j
 public class NioRequestAdapter {
 
     private final ServerContext serverContext;
-    private final DispatcherRequest dispatcherRequest = new DispatcherRequest();
+    private final NioRequestDispatcher dispatcherRequest;
     public NioRequestAdapter(ServerContext serverContext) {
         this.serverContext = serverContext;
+        this.dispatcherRequest = new NioRequestDispatcher(this.serverContext);
     }
 
-    public void process(NioConnection connection, ResponseMessage responseMessage) {
-        RequestParameter request = convertToRequestParameter(connection, responseMessage);
-        ResponseParameter response = new ResponseParameter();
-        response.setNioConnection(connection);
+    public void process(RequestParameter request, ResponseParameter response) {
 
         InterceptorChain chain = serverContext.getInterceptorChain();
 
         try {
             if (chain.applyPreHandle(request, response, null)) {
-                dispatcherRequest.doRequest(request, response);
+                dispatcherRequest.dispatchRequest(request, response);
                 chain.applyPostHandle(request, response, null, null);
             }
             chain.triggerAfterCompletion(request, response, null, null);
@@ -38,29 +34,7 @@ public class NioRequestAdapter {
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
-            e.printStackTrace();
-        }
-    }
-
-    private RequestParameter convertToRequestParameter(NioConnection connection, ResponseMessage msg) {
-        RequestParameter request = new RequestParameter();
-        request.setResult(msg);
-        request.setRequest(msg.getRequest());
-        request.setUrl(msg.getUrl());
-        request.setIp(connection.getRemoteAddress().getHostString());
-        request.setSession(SessionContainer.getSession(msg.getSessionId()));
-        request.setServerContext(serverContext);
-        request.setRequestData(parseContent(msg.getContent()));
-        return request;
-    }
-
-    private Map<Object, Object> parseContent(String content) {
-        if (content == null || content.isEmpty()) return new HashMap<>();
-        try {
-            return ObjectMapperFactory.getInstance().readValue(content, Map.class);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new HashMap<>();
+            log.error("处理请求异常", e);
         }
     }
 }

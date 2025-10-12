@@ -2,6 +2,8 @@ package zzuli.zw.main.connection;
 
 import lombok.extern.slf4j.Slf4j;
 import zzuli.zw.main.ioc.ServerContext;
+import zzuli.zw.main.model.RequestParameter;
+import zzuli.zw.main.model.ResponseParameter;
 import zzuli.zw.main.protocol.BinaryFrame;
 import zzuli.zw.main.protocol.BinaryCodec;
 import zzuli.zw.main.model.protocol.ResponseMessage;
@@ -10,6 +12,7 @@ import zzuli.zw.main.model.IMUserSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -19,24 +22,29 @@ import java.util.List;
  */
 @Slf4j
 public class NioProtocolHandler {
-    //private static final Logger logger = LoggerFactory.getLogger(NioProtocolHandler.class);
-    private final NioRequestAdapter requestAdapter;
 
+    private final NioRequestAdapter requestAdapter;
+    private final ServerContext serverContext;
+    private final NioRequestDispatcher dispatcher;
     public NioProtocolHandler(ServerContext serverContext) {
+        this.serverContext = serverContext;
         this.requestAdapter = new NioRequestAdapter(serverContext);
+        this.dispatcher = new NioRequestDispatcher(serverContext);
     }
 
-    private void handleMessageFrame(NioConnection connection, BinaryFrame frame, NioRequestDispatcher dispatcher) {
+    private void handleMessageFrame(RequestParameter requestParameter, ResponseParameter responseParameter) {
         try {
-            // 1. 解码成 ResponseMessage
-            ResponseMessage response = BinaryCodec.decodeToResponse(frame);
-
-            // 2. 交由通用适配器处理（包含拦截器链 + 分发）
-            requestAdapter.process(connection, response);
+            // 交由通用适配器处理（包含拦截器链 + 分发）
+            requestAdapter.process(requestParameter, responseParameter);
 
         } catch (Exception e) {
             log.error("处理消息帧时发生错误", e);
-            sendErrorResponse(connection, "处理消息失败");
+            try {
+                responseParameter.writeError(500, "处理消息失败");
+            }catch (IOException ex){
+                log.error("发送错误响应时发生错误", ex);
+            }
+            // sendErrorResponse(connection, "处理消息失败");
         }
     }
     /**
@@ -63,18 +71,26 @@ public class NioProtocolHandler {
      */
     private void handleFrame(NioConnection connection, BinaryFrame frame, NioRequestDispatcher dispatcher) {
         try {
+            // 将帧转换为ResponseMessage
+            ResponseMessage response = BinaryCodec.decodeToResponse(frame);
+            // 设置连接信息
+            connection.setSessionId(frame.getSessionId());
             // 更新连接心跳
             connection.updateHeartbeat();
+            // 创建请求参数
+            RequestParameter requestParameter = createRequestParameter(connection, response);
+            // 创建响应参数
+            ResponseParameter responseParameter = createResponseParameter(requestParameter);
             // 处理不同类型的消息，消息会通过拦截器，通过登录认证拦截器判断是否是登录用户
             switch (frame.getType()) {
                 case 1: // AUTH - 认证
-                    handleAuthFrame(connection, frame, dispatcher);
+                    handleAuthFrame(requestParameter, responseParameter);
                     break;
                 case 2: // MESSAGE - 消息
-                    handleMessageFrame(connection, frame, dispatcher);
+                    handleMessageFrame(requestParameter, responseParameter);
                     break;
                 case 3: // File - 文件
-                    handleSyncFrame(connection, frame, dispatcher);
+                    handleSyncFrame(requestParameter, responseParameter);
                     break;
                 case 4: // PING - 心跳
                     handlePingFrame(connection, frame);
@@ -96,35 +112,35 @@ public class NioProtocolHandler {
     /**
      * 处理认证帧
      */
-    private void handleAuthFrame(NioConnection connection, BinaryFrame frame, NioRequestDispatcher dispatcher) {
+    private void handleAuthFrame(RequestParameter requestParameter,ResponseParameter responseParameter) {
         try {
-            // 将帧转换为ResponseMessage
-            ResponseMessage response = BinaryCodec.decodeToResponse(frame);
-            
-            // 设置连接信息
-            connection.setSessionId(frame.getSessionId());
-            
             // 分发请求
-            dispatcher.dispatchRequest(connection, response);
-            
+            dispatcher.dispatchRequest(requestParameter, responseParameter);
         } catch (Exception e) {
             log.error("处理认证帧时发生错误", e);
-            sendErrorResponse(connection, "认证失败");
+            try {
+                responseParameter.writeError(500, "认证失败");
+            }catch (IOException ex){
+                log.error("发送错误响应时发生错误", ex);
+            }
+            // sendErrorResponse(this.connection, "认证失败");
         }
     }
 
     /**
      * 处理文件
      */
-    private void handleSyncFrame(NioConnection connection, BinaryFrame frame, NioRequestDispatcher dispatcher) {
+    private void handleSyncFrame(RequestParameter requestParameter, ResponseParameter responseParameter) {
         try {
-            
-            ResponseMessage response = BinaryCodec.decodeToResponse(frame);
-            dispatcher.dispatchRequest(connection, response);
-            
+            dispatcher.dispatchRequest(requestParameter, responseParameter);
         } catch (Exception e) {
             log.error("处理同步帧时发生错误", e);
-            sendErrorResponse(connection, "同步失败");
+            try {
+                responseParameter.writeError(500, "同步失败");
+            }catch (IOException ex){
+                log.error("发送错误响应时发生错误", ex);
+            }
+            //sendErrorResponse(connection, "同步失败");
         }
     }
     
@@ -161,19 +177,36 @@ public class NioProtocolHandler {
             log.error("处理心跳响应帧时发生错误", e);
         }
     }
-    
+    /**
+     * 创建请求参数
+     */
+    private RequestParameter createRequestParameter(NioConnection connection, ResponseMessage responseMessage) {
+        // 使用静态工厂方法创建请求参数
+        RequestParameter requestParameter = RequestParameter.fromNioConnection(connection, responseMessage);
+        // 设置服务器上下文
+        requestParameter.setServerContext(this.serverContext);
+        return requestParameter;
+    }
+
+    /**
+     * 创建响应参数
+     */
+    private ResponseParameter createResponseParameter(RequestParameter requestParameter) {
+        // 使用静态工厂方法从请求参数创建响应参数
+        return ResponseParameter.fromRequestParameter(requestParameter);
+    }
     /**
      * 处理错误帧
      */
-    private void handleErrorFrame(NioConnection connection, BinaryFrame frame, NioRequestDispatcher dispatcher) {
-        try {
-            ResponseMessage response = BinaryCodec.decodeToResponse(frame);
-            dispatcher.dispatchRequest(connection, response);
-            
-        } catch (Exception e) {
-            log.error("处理错误帧时发生错误", e);
-        }
-    }
+//    private void handleErrorFrame(NioConnection connection, BinaryFrame frame, NioRequestDispatcher dispatcher) {
+//        try {
+//            ResponseMessage response = BinaryCodec.decodeToResponse(frame);
+//            dispatcher.dispatchRequest(connection, response);
+//
+//        } catch (Exception e) {
+//            log.error("处理错误帧时发生错误", e);
+//        }
+//    }
     
     /**
      * 验证Session

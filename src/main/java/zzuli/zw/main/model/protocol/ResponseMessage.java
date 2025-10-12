@@ -24,6 +24,15 @@ public class ResponseMessage implements Serializable {
     private Map<String,String> cookies;  //cookies
     private boolean keepAlive = true; //是否是长连接，默认为长连接
     private String version = "Server-1.0"; //协议版本
+    private byte[] bytes;
+
+    public byte[] getBytes() {
+        return bytes;
+    }
+
+    public void setBytes(byte[] bytes) {
+        this.bytes = bytes;
+    }
 
     private String url;
 

@@ -47,7 +47,7 @@ public class NioServer {
         this.serverChannel = ServerSocketChannel.open();
         this.selector = Selector.open();
         this.connectionManager = new NioConnectionManager(maxConnections);
-        this.protocolHandler = new NioProtocolHandler();
+        this.protocolHandler = new NioProtocolHandler(this.serverContext);
         this.requestDispatcher = new NioRequestDispatcher(serverContext);
         
         // 配置服务器通道

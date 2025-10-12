@@ -1,8 +1,10 @@
 package zzuli.zw.main.model;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import zzuli.zw.main.broadcast.Broadcast;
 import zzuli.zw.main.connection.NioConnection;
-import zzuli.zw.main.factory.SessionContainer;
 import zzuli.zw.main.interfaces.Session;
 import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.manager.IMSessionManager;
@@ -23,6 +25,7 @@ import java.util.Map;
  * @Date 2021/2/12 12:24
  * @Version 2.0
  */
+@Slf4j
 public class RequestParameter implements Serializable {
     private ResponseMessage result;
     private String url;
@@ -45,7 +48,7 @@ public class RequestParameter implements Serializable {
     // NIO连接支持
     private NioConnection nioConnection;
     private String sessionId;
-
+    private static final ObjectMapper mapper = new ObjectMapper();
     /**
      * 构造函数，初始化请求时间
      */
@@ -58,19 +61,37 @@ public class RequestParameter implements Serializable {
      */
     public static RequestParameter fromNioConnection(NioConnection connection, ResponseMessage message) {
         RequestParameter parameter = new RequestParameter();
-        parameter.setNioConnection(connection);
+        // 设置基本信息
         parameter.setResult(message);
+        // 设置请求信息
         parameter.setRequest(message.getRequest());
-        parameter.setRequestType(message.getRequest());
+        // 设置请求类型
+        parameter.setRequestType(message.getRequestType());
+        // 设置请求路径
         parameter.setUrl(message.getUrl());
+        // 协议版本
         parameter.setProtocolVersion(message.getVersion());
+        // 是否保持长连接
         parameter.setKeepAlive(message.isKeepAlive());
+        // From用户ID
         parameter.setFrom(message.getFrom());
+        // To用户ID
         parameter.setTo(message.getTo());
+        // 设置SessionId
         parameter.setSessionId(message.getSessionId());
-        
+
+        // 设置Session
+        String sessionId = message.getSessionId();
+        if (sessionId != null && !sessionId.trim().isEmpty()) {
+            IMUserSession session = IMSessionManager.getUserSession(sessionId);
+            if (session != null) {
+                parameter.setSession(session);
+                parameter.setSessionId(sessionId);
+            }
+        }
         // 设置网络信息
         if (connection != null) {
+            parameter.setNioConnection(connection);
             InetSocketAddress remoteAddress = connection.getRemoteAddress();
             if (remoteAddress != null) {
                 parameter.setIp(remoteAddress.getAddress().getHostAddress());
@@ -78,8 +99,27 @@ public class RequestParameter implements Serializable {
                 parameter.setPort(remoteAddress.getPort());
             }
         }
-        
+        // 设置请求参数
+        setRequestData(parameter);
         return parameter;
+    }
+
+    /**
+     * 设置请求参数
+     * @param requestParameter
+     */
+    private static void setRequestData(RequestParameter requestParameter){
+        String content = requestParameter.getResult().getContent();
+        if (StringUtils.isNotEmpty(content)){
+            try {
+                Map<Object, Object> map = mapper.readValue(content, Map.class);
+                requestParameter.setRequestData(map);
+            }catch (Exception e){
+                // TODO 添加异常处理
+                log.error("解析请求参数失败：{}",e.getMessage());
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     @Override
@@ -101,7 +141,7 @@ public class RequestParameter implements Serializable {
                 '}';
     }
 
-    // Getters and Setters
+
     public String getSessionId() {
         return sessionId;
     }

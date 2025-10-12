@@ -23,7 +23,7 @@ public class BeanParameterResolver implements HandlerMethodArgumentResolver {
 
     @Override
     public boolean supportsParameter(Parameter parameter) {
-        return BeanUtil.isBean(parameter.getType());
+        return BeanUtil.isBean(parameter.getType()) && parameter.getType().equals();
     }
 
     @Override

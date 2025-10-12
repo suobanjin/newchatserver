@@ -1,5 +1,6 @@
 package zzuli.zw.main.connection;
 
+import zzuli.zw.main.baseRequest.BaseRequest;
 import zzuli.zw.main.ioc.ServerContext;
 import zzuli.zw.main.model.RequestParameter;
 import zzuli.zw.main.model.ResponseParameter;
@@ -20,29 +21,21 @@ public class NioRequestDispatcher {
     private static final Logger logger = LoggerFactory.getLogger(NioRequestDispatcher.class);
     
     private final ServerContext serverContext;
-    
+    private final DispatcherRequest dispatcherRequest = new DispatcherRequest();
     public NioRequestDispatcher(ServerContext serverContext) {
         this.serverContext = serverContext;
     }
-    
+
     /**
      * 分发请求到业务处理器
      */
-    public void dispatchRequest(NioConnection connection, ResponseMessage responseMessage) {
+    public void dispatchRequest(RequestParameter requestParameter, ResponseParameter responseParameter) {
         try {
-            // 创建请求参数
-            RequestParameter requestParameter = createRequestParameter(connection, responseMessage);
-            
-            // 创建响应参数
-            ResponseParameter responseParameter = createResponseParameter(requestParameter);
             
             // 使用现有的DispatcherRequest处理
             long startTime = System.currentTimeMillis();
             logger.debug("开始处理请求: {} from {}", requestParameter.getUrl(), requestParameter.getIp());
-            
-            DispatcherRequest dispatcherRequest = new DispatcherRequest();
             dispatcherRequest.doRequest(requestParameter, responseParameter);
-            
             long duration = System.currentTimeMillis() - startTime;
             logger.debug("请求处理完成: {} 耗时: {}ms", requestParameter.getUrl(), duration);
             
@@ -52,53 +45,7 @@ public class NioRequestDispatcher {
         }
     }
     
-    /**
-     * 创建请求参数
-     */
-    private RequestParameter createRequestParameter(NioConnection connection, ResponseMessage responseMessage) {
-        // 使用静态工厂方法创建请求参数
-        RequestParameter requestParameter = RequestParameter.fromNioConnection(connection, responseMessage);
-        
-        // 设置基本信息
-        requestParameter.setResult(responseMessage);
-        requestParameter.setRequest(responseMessage.getRequest());
-        requestParameter.setUrl(responseMessage.getUrl());
-        //requestParameter.setStatus(responseMessage.getCode());
-        requestParameter.setRequestType(responseMessage.getRequestType());
-        requestParameter.setProtocolVersion(responseMessage.getVersion());
-        requestParameter.setKeepAlive(responseMessage.isKeepAlive());
-        
-        // 设置网络信息
-        InetSocketAddress remoteAddress = connection.getRemoteAddress();
-        if (remoteAddress != null) {
-            requestParameter.setIp(remoteAddress.getAddress().getHostAddress());
-            requestParameter.setHost(remoteAddress.getHostName());
-            requestParameter.setPort(remoteAddress.getPort());
-        }
-        
-        // 设置Session
-        String sessionId = responseMessage.getSessionId();
-        if (sessionId != null && !sessionId.trim().isEmpty()) {
-            IMUserSession session = IMSessionManager.getUserSession(sessionId);
-            if (session != null) {
-                //requestParameter.setSession(session);
-                requestParameter.setSessionId(sessionId);
-            }
-        }
-        
-        // 设置服务器上下文
-        requestParameter.setServerContext(serverContext);
-        
-        return requestParameter;
-    }
-    
-    /**
-     * 创建响应参数
-     */
-    private ResponseParameter createResponseParameter(RequestParameter requestParameter) {
-        // 使用静态工厂方法从请求参数创建响应参数
-        return ResponseParameter.fromRequestParameter(requestParameter);
-    }
+
     
     /**
      * 发送错误响应
